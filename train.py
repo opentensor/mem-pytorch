@@ -1,6 +1,9 @@
 from memory_efficient_attention_pytorch.transformer import Transformer
 from memory_efficient_attention_pytorch.autoregressive_wrapper import AutoregressiveWrapper
 
+import pdb
+
+
 import random
 import gzip
 import numpy as np
@@ -9,6 +12,8 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset as PytorchDataset
 from itertools import chain
+
+from accelerate import Accelerator
 
 import bittensor
 from tqdm.auto import tqdm
@@ -23,6 +28,7 @@ from transformers import (
 import datasets
 from datasets import Dataset, DatasetDict, load_dataset
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # constants
 
@@ -32,12 +38,15 @@ GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
 VALIDATE_EVERY  = 100
 GENERATE_EVERY  = 500
-GENERATE_LENGTH = 1024
-SEQ_LEN = 4096
-CONCATENATE_RAW = True
+GENERATE_LENGTH = 512
+SEQ_LEN = 512
+CONCATENATE_RAW = False
 OVERWRITE_CACHE = True
 
 # helpers
+
+
+accelerator = Accelerator()
 
 def cycle(loader):
     while True:
@@ -53,20 +62,21 @@ def decode_tokens(tokens):
 # instantiate GPT-like decoder model
 
 model = Transformer(
-    num_tokens = 256,
+    num_tokens = 50257,
     dim = 512,
     max_seq_len = SEQ_LEN,
     depth = 6,
     heads = 8,
     causal = True,
-    q_bucket_size = 256,
-    k_bucket_size = 256,
+    q_bucket_size = 1024,
+    k_bucket_size = 2048,
     ff_chunks = 5,
     use_flash_attn = True
 )
 
 model = AutoregressiveWrapper(model)
 model.cuda()
+
 
 # prepare enwik8 data
 
@@ -122,6 +132,8 @@ def preprocess(tokenizer, raw_datasets):
         load_from_cache_file=not OVERWRITE_CACHE,
         desc="Running tokenizer on dataset",
     )
+
+    # pdb.set_trace()
 
     if CONCATENATE_RAW is True:
         tokenized_datasets = tokenized_datasets.map(
@@ -180,27 +192,62 @@ if "train" not in tokenized_datasets.column_names:
     tokenized_datasets["test"] = tokenized_datasets_test_valid["train"]
     tokenized_datasets["validation"] = tokenized_datasets_test_valid["test"]
 
-data_train = torch.stack(tokenized_datasets["train"])
-data_val = torch.stack(tokenized_datasets["validation"])
+# data_train = torch.stack(tokenized_datasets["train"])
+# data_val = torch.stack(tokenized_datasets["validation"])
 
-print(data_train['input_ids'])
+data_train = tokenized_datasets["train"]
+data_val = tokenized_datasets["validation"]
 
-train_dataset = TextSamplerDataset(data_train['input_ids'], SEQ_LEN)
-val_dataset   = TextSamplerDataset(data_val['input_ids'], SEQ_LEN)
-train_loader  = cycle(DataLoader(train_dataset, batch_size = BATCH_SIZE))
-val_loader    = cycle(DataLoader(val_dataset, batch_size = BATCH_SIZE))
+# pdb.set_trace()
+# print(data_train['input_ids'])
+
+# train_dataset = TextSamplerDataset(data_train, SEQ_LEN)
+# val_dataset   = TextSamplerDataset(data_val, SEQ_LEN)
+# train_loader  = cycle(DataLoader(train_dataset, batch_size = BATCH_SIZE))
+# val_loader    = cycle(DataLoader(val_dataset, batch_size = BATCH_SIZE))
+# if torch.cuda.is_available():
+#     device = torch.device("cuda")
+#     data_train.to(device)
+#     data_val.to(device)
+
+
+train_dataloader = DataLoader(
+    data_train,
+    shuffle=True,
+    collate_fn=default_data_collator,
+    batch_size=BATCH_SIZE,
+)
+eval_dataloader = DataLoader(
+    data_val,
+    collate_fn=default_data_collator,
+    batch_size=BATCH_SIZE,
+)
+
 
 # optimizer
 
 optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
+
+# train_dataloader, eval_dataloader, model, optim = accelerator.prepare(
+#     train_dataloader, eval_dataloader, model, optim
+# )
+
+
 # training
 
-for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+# for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+for step, batch in enumerate(train_dataloader):
     model.train()
 
-    for __ in range(GRADIENT_ACCUMULATE_EVERY):
-        loss = model(next(train_loader))
+    # for __ in range(GRADIENT_ACCUMULATE_EVERY):
+    #     loss = model(next(train_loader))
+    #     loss.backward()
+
+    x = batch['input_ids'].to(device)
+
+    for _ in range(GRADIENT_ACCUMULATE_EVERY):
+        loss = model(x)
         loss.backward()
 
     print(f'training loss: {loss.item()}')
@@ -208,19 +255,19 @@ for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
     optim.step()
     optim.zero_grad()
 
-    if i % VALIDATE_EVERY == 0:
-        model.eval()
-        with torch.no_grad():
-            loss = model(next(val_loader))
-            print(f'validation loss: {loss.item()}')
+    # if step % VALIDATE_EVERY == 0:
+    #     model.eval()
+    #     with torch.no_grad():
+    #         loss = model(next(eval_dataloader))
+    #         print(f'validation loss: {loss.item()}')
 
-    if i != 0 and i % GENERATE_EVERY == 0:
-        model.eval()
-        inp = random.choice(val_dataset)[:-1]
-        prime = decode_tokens(inp)
-        print(f'%s \n\n %s', (prime, '*' * 100))
+    # if step != 0 and i % GENERATE_EVERY == 0:
+    #     model.eval()
+    #     inp = random.choice(val_dataset)[:-1]
+    #     prime = decode_tokens(inp)
+    #     print(f'%s \n\n %s', (prime, '*' * 100))
 
-        sample = model.generate(inp[None, ...], GENERATE_LENGTH)
-        output_str = decode_tokens(sample[0])
-        print(output_str)
+    #     sample = model.generate(inp[None, ...], GENERATE_LENGTH)
+    #     output_str = decode_tokens(sample[0])
+    #     print(output_str)
 
