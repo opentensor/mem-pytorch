@@ -3,7 +3,8 @@ from memory_efficient_attention_pytorch.autoregressive_wrapper import Autoregres
 
 import pdb
 
-
+import pickle
+import os
 import random
 import gzip
 import numpy as np
@@ -12,11 +13,11 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset as PytorchDataset
 from itertools import chain
-
-from accelerate import Accelerator
-
 import bittensor
 from tqdm.auto import tqdm
+
+from torchsummary import summary
+
 
 from transformers import (
     AutoConfig,
@@ -37,16 +38,14 @@ BATCH_SIZE = 4
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
 VALIDATE_EVERY  = 100
-GENERATE_EVERY  = 500
+GENERATE_EVERY  = 5
 GENERATE_LENGTH = 64
 SEQ_LEN = 64
 CONCATENATE_RAW = False
-OVERWRITE_CACHE = True
+OVERWRITE_CACHE = False
 
 # helpers
 
-
-accelerator = Accelerator()
 
 def cycle(loader):
     while True:
@@ -78,7 +77,11 @@ model = AutoregressiveWrapper(model)
 model.cuda()
 
 
-# prepare enwik8 data
+model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+params = sum([np.prod(p.size()) for p in model_parameters])
+
+print(f"Number of parameters: {params:,}")
+    # prepare enwik8 data
 
 # with gzip.open('./data/enwik8.gz') as file:
 #     X = np.fromstring(file.read(int(95e6)), dtype=np.uint8)
@@ -146,20 +149,28 @@ def preprocess(tokenizer, raw_datasets):
 
     return tokenized_datasets
 
+if not os.path.exists("bt_dataset_cached.pkl"):
+    dataset = bittensor.dataset(
+        no_tokenizer=True,
+        batch_size=BATCH_SIZE,
+        block_size=SEQ_LEN,
+        save_dataset=True,
+    )
+
+    dataloader = dataset.dataloader(NUM_BATCHES)
+    bittensor_dataset = {"text": []}
+    for batch in tqdm(dataloader, desc="Loading data from bittensor IPFS"):
+        bittensor_dataset["text"].extend(batch)
+    raw_datasets = Dataset.from_dict(bittensor_dataset)
+
+    # dataset.close()  # Avoid leaving threadqueue running.
 
 
-dataset = bittensor.dataset(
-    no_tokenizer=True,
-    batch_size=BATCH_SIZE,
-    block_size=SEQ_LEN,
-)
-dataloader = dataset.dataloader(NUM_BATCHES)
-bittensor_dataset = {"text": []}
-for batch in tqdm(dataloader, desc="Loading data from bittensor IPFS"):
-    bittensor_dataset["text"].extend(batch)
-raw_datasets = Dataset.from_dict(bittensor_dataset)
+    with open("bt_dataset_cached.pkl", "wb") as fh:
+        pickle.dump(raw_datasets, fh)
+else:
+    with open("bt_dataset_cached.pkl", "rb") as fh: raw_datasets = pickle.load(fh)
 
-dataset.close()  # Avoid leaving threadqueue running.
 
 class TextSamplerDataset(PytorchDataset):
     def __init__(self, data, seq_len):
@@ -237,12 +248,14 @@ optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # training
 
 # for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
-for step, batch in tqdm(enumerate(train_dataloader)):
+for step, batch in tqdm(enumerate(train_dataloader), mininterval=10., desc='training'):
     model.train()
 
     # for __ in range(GRADIENT_ACCUMULATE_EVERY):
     #     loss = model(next(train_loader))
     #     loss.backward()
+
+    # batch = train_dataloader[step]
 
     x = batch['input_ids'].to(device)
 
@@ -267,11 +280,17 @@ for step, batch in tqdm(enumerate(train_dataloader)):
 
     if step != 0 and step % GENERATE_EVERY == 0:
         model.eval()
-        inp = random.choice(data_val)[:-1]
-        prime = decode_tokens(inp)
+        inp = random.choice(data_val['input_ids'])[:-1]
+        # prime = decode_tokens(inp)
+        prime = tokenizer.decode(inp)
         print(f'%s \n\n %s', (prime, '*' * 100))
 
-        sample = model.generate(inp[None, ...], GENERATE_LENGTH)
-        output_str = decode_tokens(sample[0])
+        inp = torch.tensor(inp)
+
+        inp = inp.reshape(1, -1)
+        inp = inp.to(device)
+
+        sample = model.generate(inp, GENERATE_LENGTH)
+        output_str = tokenizer.decode(sample[0])
         print(output_str)
 
