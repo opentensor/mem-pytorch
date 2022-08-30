@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-bt_dataset_cached.pkl
+bt_dataset_cached_*_*.pkl
 
 # C extensions
 *.so

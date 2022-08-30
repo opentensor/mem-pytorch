@@ -33,16 +33,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # constants
 
-NUM_BATCHES = int(1e5)
-BATCH_SIZE = 4
+NUM_BATCHES = 1000
+BATCH_SIZE = 64
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
 VALIDATE_EVERY  = 100
-GENERATE_EVERY  = 5
+GENERATE_EVERY  = 500
 GENERATE_LENGTH = 64
 SEQ_LEN = 64
 CONCATENATE_RAW = False
 OVERWRITE_CACHE = False
+SAVE_EVERY = 1000
 
 # helpers
 
@@ -149,12 +150,13 @@ def preprocess(tokenizer, raw_datasets):
 
     return tokenized_datasets
 
-if not os.path.exists("bt_dataset_cached.pkl"):
+file_name = f"./bt_dataset_cached_{SEQ_LEN}_{BATCH_SIZE}.pkl"
+
+if not os.path.exists(file_name):
     dataset = bittensor.dataset(
         no_tokenizer=True,
         batch_size=BATCH_SIZE,
         block_size=SEQ_LEN,
-        save_dataset=True,
     )
 
     dataloader = dataset.dataloader(NUM_BATCHES)
@@ -166,10 +168,10 @@ if not os.path.exists("bt_dataset_cached.pkl"):
     # dataset.close()  # Avoid leaving threadqueue running.
 
 
-    with open("bt_dataset_cached.pkl", "wb") as fh:
+    with open(file_name, "wb") as fh:
         pickle.dump(raw_datasets, fh)
 else:
-    with open("bt_dataset_cached.pkl", "rb") as fh: raw_datasets = pickle.load(fh)
+    with open(file_name, "rb") as fh: raw_datasets = pickle.load(fh)
 
 
 class TextSamplerDataset(PytorchDataset):
@@ -293,4 +295,9 @@ for step, batch in tqdm(enumerate(train_dataloader), mininterval=10., desc='trai
         sample = model.generate(inp, GENERATE_LENGTH)
         output_str = tokenizer.decode(sample[0])
         print(output_str)
+
+
+    if step != 0 and step % SAVE_EVERY == 0:
+        torch.save(model.state_dict(), f"{MODEL_NAME}_{step}.pt")
+        print(f'saved model to {MODEL_NAME}_{step}.pt')
 
