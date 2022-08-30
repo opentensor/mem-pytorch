@@ -38,8 +38,8 @@ GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
 VALIDATE_EVERY  = 100
 GENERATE_EVERY  = 500
-GENERATE_LENGTH = 512
-SEQ_LEN = 512
+GENERATE_LENGTH = 64
+SEQ_LEN = 64
 CONCATENATE_RAW = False
 OVERWRITE_CACHE = True
 
@@ -237,7 +237,7 @@ optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # training
 
 # for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
-for step, batch in enumerate(train_dataloader):
+for step, batch in tqdm(enumerate(train_dataloader)):
     model.train()
 
     # for __ in range(GRADIENT_ACCUMULATE_EVERY):
@@ -255,19 +255,23 @@ for step, batch in enumerate(train_dataloader):
     optim.step()
     optim.zero_grad()
 
-    # if step % VALIDATE_EVERY == 0:
-    #     model.eval()
-    #     with torch.no_grad():
-    #         loss = model(next(eval_dataloader))
-    #         print(f'validation loss: {loss.item()}')
+    if step % VALIDATE_EVERY == 0:
+        model.eval()
+        for _eval_step, eval_batch in enumerate(eval_dataloader):
+            if _eval_step >= 5:
+                break
+            y = eval_batch['input_ids'].to(device)
+            with torch.no_grad():
+                loss = model(y)
+                print(f'validation loss: {loss.item()}')
 
-    # if step != 0 and i % GENERATE_EVERY == 0:
-    #     model.eval()
-    #     inp = random.choice(val_dataset)[:-1]
-    #     prime = decode_tokens(inp)
-    #     print(f'%s \n\n %s', (prime, '*' * 100))
+    if step != 0 and step % GENERATE_EVERY == 0:
+        model.eval()
+        inp = random.choice(data_val)[:-1]
+        prime = decode_tokens(inp)
+        print(f'%s \n\n %s', (prime, '*' * 100))
 
-    #     sample = model.generate(inp[None, ...], GENERATE_LENGTH)
-    #     output_str = decode_tokens(sample[0])
-    #     print(output_str)
+        sample = model.generate(inp[None, ...], GENERATE_LENGTH)
+        output_str = decode_tokens(sample[0])
+        print(output_str)
 
