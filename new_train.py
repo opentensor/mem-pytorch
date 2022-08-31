@@ -206,6 +206,10 @@ def create_hf_dataset():
         data_train = train_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
         data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
+
+        seed, buffer_size = 42, 10_000
+        data_train = data_train.shuffle(seed, buffer_size=buffer_size)
+        data_val = data_val.shuffle(seed, buffer_size=buffer_size)
         return data_train, data_val, tokenizer
     else:
     
@@ -254,13 +258,14 @@ def create_dataset():
 
 
 
-def stream_train(model, raw_dataset, train_dataloader, eval_dataloader, tokenizer):
+def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader, tokenizer):
 
     optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for step in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
         # raw_dataset.set_epoch(i)
 
+        data_train.set_epoch(step)
         for i, batch in enumerate(tqdm(train_dataloader, total=5)):
             if i == 5:
                 break
@@ -282,6 +287,7 @@ def stream_train(model, raw_dataset, train_dataloader, eval_dataloader, tokenize
             print(f'training loss std: {std}')
 
         if step % VALIDATE_EVERY == 0:
+            data_val.set_epoch(step)
             model.eval()
             for _eval_step, eval_batch in enumerate(eval_dataloader):
                 if _eval_step >= 1:
@@ -412,7 +418,7 @@ if __name__ == "__main__":
             ),
             batch_size=BATCH_SIZE,
         )
-        stream_train(model, data_val, train_dataloader, eval_dataloader, tokenizer)
+        stream_train(model, data_train, data_val, train_dataloader, eval_dataloader, tokenizer)
     else:
         train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
 
