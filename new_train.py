@@ -252,8 +252,8 @@ def stream_train(model, raw_dataset, dataloader, tokenizer):
                 break
             # batch = {k: v.to(device) for k, v in batch.items()}
             
-            pdb.set_trace()
             x = batch.to(device)
+            pdb.set_trace()
 
             loss = model(x)
             if torch.cuda.device_count() > 1:

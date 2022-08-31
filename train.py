@@ -260,8 +260,8 @@ for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
 
         # batch = train_dataloader[step]
 
-        pdb.set_trace()
         x = batch['input_ids'].to(device)
+        pdb.set_trace()
 
         for _ in range(GRADIENT_ACCUMULATE_EVERY):
             loss = model(x)
