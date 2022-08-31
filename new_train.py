@@ -328,14 +328,17 @@ if __name__ == "__main__":
 
     if USE_HF_DATA:
         if STREAM:
-            raw_dataset, dataloader, tokenizer = create_hf_dataset()
+            raw_dataset, tokenizer = create_hf_dataset()
         else:
             train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_hf_dataset()
     else:
         train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_dataset()
 
     if STREAM:
-        # dataloader = DataLoader(raw_dataset, collate_fn=default_data_collator(tokenizer))
+        dataloader = DataLoader(raw_dataset, collate_fn=DataCollatorForLanguageModeling(
+            tokenizer=tokenizer,
+            mlm=False
+            ))
         stream_train(model, raw_dataset, dataloader, tokenizer)
     else:
         train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
