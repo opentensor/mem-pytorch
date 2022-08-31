@@ -76,6 +76,8 @@ model = Transformer(
 model = AutoregressiveWrapper(model)
 model.cuda()
 
+model = torch.nn.DataParallel(model)
+
 
 model_parameters = filter(lambda p: p.requires_grad, model.parameters())
 params = sum([np.prod(p.size()) for p in model_parameters])
