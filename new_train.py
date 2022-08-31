@@ -180,7 +180,7 @@ def create_tokenizer():
 
 def create_hf_dataset():
     raw_dataset = load_dataset(DATASET_NAME, streaming=True)
-    
+    raw_dataset.set_epoch(0)
 
     tokenizer = create_tokenizer()
 
