@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as PytorchDataset
 from tqdm.auto import tqdm
 from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
-                          default_data_collator, get_scheduler)
+                          default_data_collator, get_scheduler, DataCollatorForLanguageModeling)
 
 from memory_efficient_attention_pytorch.autoregressive_wrapper import \
     AutoregressiveWrapper
@@ -41,6 +41,7 @@ MODEL_NAME = 'DADDY'
 DATASET_NAME = 'the_pile'
 TOKENIZER_NAME = 'gpt2'
 USE_HF_DATA = True
+STREAM = True
 
 
 
@@ -179,16 +180,22 @@ def create_tokenizer():
     return tokenizer
 
 def create_hf_dataset():
-    raw_dataset = load_dataset(DATASET_NAME, streaming=True)
+    raw_dataset = load_dataset(DATASET_NAME, streaming=STREAM)
+    raw_dataset = raw_dataset.with_format("torch")
 
     tokenizer = create_tokenizer()
 
-    pdb.set_trace()
-    tokenized_datasets = preprocess(tokenizer, raw_dataset)
 
-    train_dataloader, eval_dataloader, data_train, data_val = create_tokenized_datasets(tokenized_datasets)
+    if STREAM:
+        return raw_dataset, tokenizer
+    else:
 
-    return train_dataloader, eval_dataloader, data_train, data_val, tokenizer
+    # pdb.set_trace()
+        tokenized_datasets = preprocess(tokenizer, raw_dataset)
+
+        train_dataloader, eval_dataloader, data_train, data_val = create_tokenized_datasets(tokenized_datasets)
+
+        return train_dataloader, eval_dataloader, data_train, data_val, tokenizer
 
 
 
@@ -225,6 +232,30 @@ def create_dataset():
 
     return train_dataloader, eval_dataloader, data_train, data_val, tokenizer
 
+
+
+def stream_train(model, raw_dataset, dataloader, tokenizer):
+
+    optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+        raw_dataset.set_epoch(i)
+
+        for i, batch in enumerate(tqdm(dataloader, total=5)):
+            if i == 5:
+                break
+            batch = {k: v.to(device) for k, v in batch.items()}
+            loss = model(batch)
+            if torch.cuda.device_count() > 1:
+                std = loss.std().item()
+                loss = loss.mean()
+            loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            optim.step()
+            optim.zero_grad()
+            print(f'training loss: {loss.item()}')
+            print(f'training loss std: {std}')
 
 
 def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
@@ -296,11 +327,18 @@ if __name__ == "__main__":
     model = create_model()
 
     if USE_HF_DATA:
-        train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_hf_dataset()
+        if STREAM:
+            raw_dataset, tokenizer = create_hf_dataset()
+        else:
+            train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_hf_dataset()
     else:
         train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_dataset()
 
-    train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
+    if STREAM:
+        dataloader = DataLoader(raw_dataset, collate_fn=DataCollatorForLanguageModeling(tokenizer))
+        stream_train(model, raw_dataset, dataloader, tokenizer)
+    else:
+        train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
 
 
 
