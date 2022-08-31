@@ -173,7 +173,7 @@ def create_tokenized_datasets(tokenized_datasets):
 
 def create_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(
-        TOKENIZER_NAME, use_fast=False, mlm=False
+        TOKENIZER_NAME, use_fast=True, mlm=False
     )
     tokenizer.pad_token = "[PAD]"
 
@@ -263,7 +263,7 @@ def stream_train(model, raw_dataset, dataloader, tokenizer):
                 break
             # batch = {k: v.to(device) for k, v in batch.items()}
             
-            x = batch.to(device)
+            x = batch['input_ids'].to(device)
             pdb.set_trace()
 
             loss = model(x)
