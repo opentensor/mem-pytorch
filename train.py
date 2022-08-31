@@ -74,9 +74,13 @@ model = Transformer(
 )
 
 model = AutoregressiveWrapper(model)
-model.cuda()
+# model.cuda()
 
-model = torch.nn.DataParallel(model)
+if torch.cuda.device_count() > 1:
+    print("Let's use", torch.cuda.device_count(), "GPUs!")
+    model = torch.nn.DataParallel(model)
+
+model.to(device)
 
 
 model_parameters = filter(lambda p: p.requires_grad, model.parameters())
