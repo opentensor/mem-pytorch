@@ -31,7 +31,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # constants
 
-NUM_BATCHES = 100000
+NUM_BATCHES = 100_000
 BATCH_SIZE = 64
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
@@ -269,7 +269,10 @@ for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
 
         for _ in range(GRADIENT_ACCUMULATE_EVERY):
             loss = model(x)
-            loss.backward()
+            if torch.cuda.device_count() > 1:
+                loss.sum().backward()
+            else:
+                loss.backward()
 
         print(f'training loss: {loss.item()}')
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
