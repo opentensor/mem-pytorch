@@ -22,6 +22,8 @@ from memory_efficient_attention_pytorch.autoregressive_wrapper import \
     AutoregressiveWrapper
 from memory_efficient_attention_pytorch.transformer import Transformer
 
+import zstandard as zstd
+
 
 NUM_BATCHES = 100_000
 BATCH_SIZE = 64
