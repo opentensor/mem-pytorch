@@ -250,8 +250,11 @@ def stream_train(model, raw_dataset, dataloader, tokenizer):
         for i, batch in enumerate(tqdm(dataloader, total=5)):
             if i == 5:
                 break
-            batch = {k: v.to(device) for k, v in batch.items()}
-            loss = model(batch)
+            # batch = {k: v.to(device) for k, v in batch.items()}
+
+            x = batch["input_ids"].to(device)
+
+            loss = model(x)
             if torch.cuda.device_count() > 1:
                 std = loss.std().item()
                 loss = loss.mean()
