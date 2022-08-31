@@ -25,7 +25,7 @@ from memory_efficient_attention_pytorch.transformer import Transformer
 import zstandard as zstd
 
 
-NUM_BATCHES = 100_000
+NUM_BATCHES = 100_000_000
 BATCH_SIZE = 64
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
@@ -264,7 +264,7 @@ def stream_train(model, raw_dataset, dataloader, tokenizer):
             # batch = {k: v.to(device) for k, v in batch.items()}
             
             x = batch['input_ids'].to(device)
-            pdb.set_trace()
+            # pdb.set_trace()
 
             loss = model(x)
             if torch.cuda.device_count() > 1:
