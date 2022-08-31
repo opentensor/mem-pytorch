@@ -33,18 +33,19 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # constants
 
-NUM_BATCHES = 1000
+NUM_BATCHES = 100000
 BATCH_SIZE = 64
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
-VALIDATE_EVERY  = 100
-GENERATE_EVERY  = 500
-GENERATE_LENGTH = 64
-SEQ_LEN = 64
+VALIDATE_EVERY  = 5
+GENERATE_EVERY  = 10
+GENERATE_LENGTH = 256
+SEQ_LEN = 256
 CONCATENATE_RAW = False
 OVERWRITE_CACHE = False
-SAVE_EVERY = 1000
-
+SAVE_EVERY = 50
+SAVE_DIR = '/notebooks/mem/models'
+MODEL_NAME = 'DADDY'
 # helpers
 
 
@@ -63,10 +64,10 @@ def decode_tokens(tokens):
 
 model = Transformer(
     num_tokens = 50257,
-    dim = 512,
+    dim = 2048,
     max_seq_len = SEQ_LEN,
-    depth = 6,
-    heads = 8,
+    depth = 24,
+    heads = 24,
     causal = True,
     q_bucket_size = 1024,
     k_bucket_size = 2048,
@@ -157,6 +158,7 @@ if not os.path.exists(file_name):
         no_tokenizer=True,
         batch_size=BATCH_SIZE,
         block_size=SEQ_LEN,
+        num_workers=32
     )
 
     dataloader = dataset.dataloader(NUM_BATCHES)
@@ -249,55 +251,55 @@ optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 # training
 
-# for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
-for step, batch in tqdm(enumerate(train_dataloader), mininterval=10., desc='training'):
-    model.train()
+for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+    for step, batch in tqdm(enumerate(train_dataloader), mininterval=10., desc='training'):
+        model.train()
 
-    # for __ in range(GRADIENT_ACCUMULATE_EVERY):
-    #     loss = model(next(train_loader))
-    #     loss.backward()
+        # for __ in range(GRADIENT_ACCUMULATE_EVERY):
+        #     loss = model(next(train_loader))
+        #     loss.backward()
 
-    # batch = train_dataloader[step]
+        # batch = train_dataloader[step]
 
-    x = batch['input_ids'].to(device)
+        x = batch['input_ids'].to(device)
 
-    for _ in range(GRADIENT_ACCUMULATE_EVERY):
-        loss = model(x)
-        loss.backward()
+        for _ in range(GRADIENT_ACCUMULATE_EVERY):
+            loss = model(x)
+            loss.backward()
 
-    print(f'training loss: {loss.item()}')
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-    optim.step()
-    optim.zero_grad()
+        print(f'training loss: {loss.item()}')
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        optim.step()
+        optim.zero_grad()
 
-    if step % VALIDATE_EVERY == 0:
-        model.eval()
-        for _eval_step, eval_batch in enumerate(eval_dataloader):
-            if _eval_step >= 5:
-                break
-            y = eval_batch['input_ids'].to(device)
-            with torch.no_grad():
-                loss = model(y)
-                print(f'validation loss: {loss.item()}')
+        if step % VALIDATE_EVERY == 0:
+            model.eval()
+            for _eval_step, eval_batch in enumerate(eval_dataloader):
+                if _eval_step >= 1:
+                    break
+                y = eval_batch['input_ids'].to(device)
+                with torch.no_grad():
+                    loss = model(y)
+                    print(f'validation loss: {loss.item()}')
 
-    if step != 0 and step % GENERATE_EVERY == 0:
-        model.eval()
-        inp = random.choice(data_val['input_ids'])[:-1]
-        # prime = decode_tokens(inp)
-        prime = tokenizer.decode(inp)
-        print(f'%s \n\n %s', (prime, '*' * 100))
+        if step != 0 and step % GENERATE_EVERY == 0:
+            model.eval()
+            inp = random.choice(data_val['input_ids'])[:-1]
+            # prime = decode_tokens(inp)
+            prime = tokenizer.decode(inp)
+            print(f'%s \n\n %s', (prime, '*' * 100))
 
-        inp = torch.tensor(inp)
+            inp = torch.tensor(inp)
 
-        inp = inp.reshape(1, -1)
-        inp = inp.to(device)
+            inp = inp.reshape(1, -1)
+            inp = inp.to(device)
 
-        sample = model.generate(inp, GENERATE_LENGTH)
-        output_str = tokenizer.decode(sample[0])
-        print(output_str)
+            sample = model.generate(inp, GENERATE_LENGTH)
+            output_str = tokenizer.decode(sample[0])
+            print(output_str)
 
 
-    if step != 0 and step % SAVE_EVERY == 0:
-        torch.save(model.state_dict(), f"{MODEL_NAME}_{step}.pt")
-        print(f'saved model to {MODEL_NAME}_{step}.pt')
+        if step != 0 and step % SAVE_EVERY == 0:
+            torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{step}.pt")
+            print(f'saved model to {MODEL_NAME}_{step}.pt')
 

@@ -1,0 +1,3 @@
+git+https://github.com/opentensor/bittensor
+transformers
+datasets
