@@ -335,7 +335,7 @@ if __name__ == "__main__":
         train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_dataset()
 
     if STREAM:
-        dataloader = DataLoader(raw_dataset, collate_fn=DataCollatorForLanguageModeling(tokenizer))
+        dataloader = DataLoader(raw_dataset, collate_fn=default_data_collator(tokenizer))
         stream_train(model, raw_dataset, dataloader, tokenizer)
     else:
         train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
