@@ -270,9 +270,8 @@ for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
         for _ in range(GRADIENT_ACCUMULATE_EVERY):
             loss = model(x)
             if torch.cuda.device_count() > 1:
-                loss.sum().backward()
-            else:
-                loss.backward()
+                loss = loss.sum()
+            loss.backward()
 
         print(f'training loss: {loss.item()}')
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
