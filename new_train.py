@@ -180,13 +180,14 @@ def create_tokenizer():
     return tokenizer
 
 def create_hf_dataset():
-    raw_dataset = load_dataset(DATASET_NAME, streaming=STREAM)
-    raw_dataset = raw_dataset.with_format("torch")
-
     tokenizer = create_tokenizer()
 
-
     if STREAM:
+
+        train_dataset = load_dataset(DATASET_NAME, split="train", streaming=STREAM)
+        val_dataset = load_dataset(DATASET_NAME, split="validation", streaming=STREAM)
+        train_dataset = train_dataset.with_format("torch")
+        val_dataset = val_dataset.with_format("torch")
 
         def encode(examples):
             if CONCATENATE_RAW is True:
@@ -202,12 +203,13 @@ def create_hf_dataset():
                 max_length=SEQ_LEN
             )
 
-        data_train = raw_dataset['train'].map(encode, batched=True, remove_columns=["text", "meta"])
-        data_val = raw_dataset['validation'].map(encode, batched=True, remove_columns=["text", "meta"])
+        data_train = train_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+        data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
         return data_train, data_val, tokenizer
     else:
-
+    
+        raw_dataset = load_dataset(DATASET_NAME, split="train")
     # pdb.set_trace()
         tokenized_datasets = preprocess(tokenizer, raw_dataset)
 
