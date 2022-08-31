@@ -180,7 +180,7 @@ def create_tokenizer():
     return tokenizer
 
 def create_hf_dataset():
-    raw_dataset = load_dataset(DATASET_NAME, streaming=STREAM)
+    raw_dataset = load_dataset(DATASET_NAME, split="train", streaming=STREAM)
     raw_dataset = raw_dataset.with_format("torch")
 
     tokenizer = create_tokenizer()
@@ -239,7 +239,7 @@ def stream_train(model, raw_dataset, dataloader, tokenizer):
     optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
-        raw_dataset.set_epoch(i)
+        # raw_dataset.set_epoch(i)
 
         for i, batch in enumerate(tqdm(dataloader, total=5)):
             if i == 5:
