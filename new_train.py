@@ -2,11 +2,15 @@ import os
 import pickle
 import random
 from itertools import chain
+from typing import Sequence
 
 import bittensor
+import hydra
+from omegaconf import OmegaConf
 import numpy as np
 import torch
-from datasets import Dataset, load_dataset
+from datasets import Dataset, load_dataset, interleave_datasets
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import (
@@ -42,13 +46,13 @@ STREAM = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def create_model():
+def create_model(dim: int, depth: int, heads: int) -> torch.nn.Module:
     model = Transformer(
         num_tokens=50257,
-        dim=2048,
+        dim=dim,
         max_seq_len=SEQ_LEN,
-        depth=24,
-        heads=24,
+        depth=depth,
+        heads=heads,
         causal=True,
         q_bucket_size=1024,
         k_bucket_size=2048,
@@ -57,7 +61,6 @@ def create_model():
     )
 
     model = AutoregressiveWrapper(model)
-    # model.cuda()
 
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -161,47 +164,43 @@ def create_tokenizer():
     return tokenizer
 
 
-def create_hf_dataset():
+def create_hf_dataset(set_names: Sequence[str]):
     tokenizer = create_tokenizer()
 
-    if STREAM:
+    train_sets = []
+    val_sets = []
+    # TODO: More robust config handling for datasets w/ other kwargs
+    for set_name in set_names:
+        train_sets.append(load_dataset(set_name, split="train", streaming=True))
+        val_sets.append(load_dataset(set_name, split="validation", streaming=True))
+    train_dataset = interleave_datasets(train_sets)
+    val_dataset = interleave_datasets(val_sets)
 
-        train_dataset = load_dataset(DATASET_NAME, split="train", streaming=STREAM)
-        val_dataset = load_dataset(DATASET_NAME, split="validation", streaming=STREAM)
-        train_dataset = train_dataset.with_format("torch")
-        val_dataset = val_dataset.with_format("torch")
+    train_dataset = train_dataset.with_format("torch")
+    val_dataset = val_dataset.with_format("torch")
+    #train_dataset = load_dataset(DATASET_NAME, split="train", streaming=STREAM)
+    #val_dataset = load_dataset(DATASET_NAME, split="validation", streaming=STREAM)
+    #train_dataset = train_dataset.with_format("torch")
+    #val_dataset = val_dataset.with_format("torch")
 
-        def encode(examples):
-            if CONCATENATE_RAW is True:
-                pad = False
-            else:
-                pad = "max_length"
+    def encode(examples):
+        if CONCATENATE_RAW is True:
+            pad = False
+        else:
+            pad = "max_length"
 
-            return tokenizer(
-                examples["text"], padding=pad, truncation=True, max_length=SEQ_LEN
-            )
-
-        data_train = train_dataset.map(
-            encode, batched=True, remove_columns=["text", "meta"]
+        return tokenizer(
+            examples["text"], padding=pad, truncation=True, max_length=SEQ_LEN
         )
-        data_val = val_dataset.map(
-            encode, batched=True, remove_columns=["text", "meta"]
-        )
 
-        return data_train, data_val, tokenizer
-    else:
+    data_train = train_dataset.map(
+        encode, batched=True, remove_columns=["text", "meta"]
+    )
+    data_val = val_dataset.map(
+        encode, batched=True, remove_columns=["text", "meta"]
+    )
 
-        raw_dataset = load_dataset(DATASET_NAME, split="train")
-        tokenized_datasets = preprocess(tokenizer, raw_dataset)
-
-        (
-            train_dataloader,
-            eval_dataloader,
-            data_train,
-            data_val,
-        ) = create_tokenized_datasets(tokenized_datasets)
-
-        return train_dataloader, eval_dataloader, data_train, data_val, tokenizer
+    return data_train, data_val, tokenizer
 
 
 def create_dataset():
@@ -218,7 +217,7 @@ def create_dataset():
             bittensor_dataset["text"].extend(batch)
         raw_datasets = Dataset.from_dict(bittensor_dataset)
 
-        # dataset.close()  # Avoid leaving threadqueue running.
+        dataset.close()  # Avoid leaving threadqueue running.
 
         with open(file_name, "wb") as fh:
             pickle.dump(raw_datasets, fh)
@@ -237,23 +236,26 @@ def create_dataset():
     return train_dataloader, eval_dataloader, data_train, data_val, tokenizer
 
 
-def stream_train(model, raw_dataset, train_dataloader, eval_dataloader, tokenizer):
+def stream_train(model, train_dataloader, eval_dataloader, tokenizer, data_val):
 
     optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for step in tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
-        # raw_dataset.set_epoch(i)
 
         for i, batch in enumerate(tqdm(train_dataloader, total=5)):
             if i == 5:
                 break
 
-            x = batch["input_ids"].to(device)
+            try:
+                x = batch["input_ids"].to(device)
+            except AttributeError:
+                import pdb; pdb.set_trace()
 
             loss = model(x)
+            std = 0
             if torch.cuda.device_count() > 1:
-                std = loss.std().item()
                 loss = loss.mean()
+                std = loss.std().item()
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -365,21 +367,12 @@ def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
                 print(f"saved model to {MODEL_NAME}_{step}.pt")
 
 
-if __name__ == "__main__":
-    model = create_model()
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
+    model = create_model(dim=cfg.model.dim, depth=cfg.model.depth, heads=cfg.model.heads)
 
-    if USE_HF_DATA:
-        if STREAM:
-            data_train, data_val, tokenizer = create_hf_dataset()
-        else:
-            (
-                train_dataloader,
-                eval_dataloader,
-                data_train,
-                data_val,
-                tokenizer,
-            ) = create_hf_dataset()
-    else:
+    if cfg.dataset.name == "bittensor":
         (
             train_dataloader,
             eval_dataloader,
@@ -387,18 +380,22 @@ if __name__ == "__main__":
             data_val,
             tokenizer,
         ) = create_dataset()
-
-    if STREAM:
+        train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
+    else:
+        data_train, data_val, tokenizer = create_hf_dataset(set_names=cfg.dataset.constituent_sets)
         train_dataloader = DataLoader(
             data_train,
             collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-            batch_size=BATCH_SIZE,
+            batch_size=cfg.regime.batch_size,
         )
         eval_dataloader = DataLoader(
             data_val,
             collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-            batch_size=BATCH_SIZE,
+            batch_size=cfg.regime.batch_size,
         )
         stream_train(model, data_val, train_dataloader, eval_dataloader, tokenizer)
-    else:
-        train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
+
+
+if __name__ == "__main__":
+    main()
+
