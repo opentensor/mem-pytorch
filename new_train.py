@@ -52,10 +52,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def create_model():
     model = Transformer(
         num_tokens = 50257,
-        dim = 2048,
+        dim = 1024,
         max_seq_len = SEQ_LEN,
         depth = 24,
-        heads = 24,
+        heads = 16,
         causal = True,
         q_bucket_size = 1024,
         k_bucket_size = 2048,
