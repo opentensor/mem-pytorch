@@ -1,4 +1,5 @@
 git+https://github.com/opentensor/bittensor
 transformers
 datasets
+fsspec==2022.7.1
 zstandard
