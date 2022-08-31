@@ -286,6 +286,8 @@ for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
                 y = eval_batch['input_ids'].to(device)
                 with torch.no_grad():
                     loss = model(y)
+                    if torch.cuda.device_count() > 1:
+                        loss = loss.sum()
                     print(f'validation loss: {loss.item()}')
 
         if step != 0 and step % GENERATE_EVERY == 0:
