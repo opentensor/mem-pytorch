@@ -187,6 +187,12 @@ def create_hf_dataset():
 
 
     if STREAM:
+
+        def encode(examples):
+            return tokenizer(examples['text'], truncation=True, padding='max_length')
+
+        raw_dataset = raw_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+
         return raw_dataset, tokenizer
     else:
 
