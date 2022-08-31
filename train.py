@@ -16,8 +16,6 @@ from itertools import chain
 import bittensor
 from tqdm.auto import tqdm
 
-from torchsummary import summary
-
 
 from transformers import (
     AutoConfig,
