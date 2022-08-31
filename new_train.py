@@ -286,22 +286,22 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
             print(f'training loss: {loss.item()}')
             print(f'training loss std: {std}')
 
-        if step % VALIDATE_EVERY == 0:
-            data_val.set_epoch(step)
-            model.eval()
-            for _eval_step, eval_batch in enumerate(eval_dataloader):
-                if _eval_step >= 1:
-                    break
-                y = eval_batch['input_ids'].to(device)
-                with torch.no_grad():
-                    loss = model(y)
-                    std = 0
-                    if torch.cuda.device_count() > 1:
-                        std = loss.std().item()
-                        loss = loss.mean()
+        # if step % VALIDATE_EVERY == 0:
+        #     data_val.set_epoch(step)
+        #     model.eval()
+        #     for _eval_step, eval_batch in enumerate(eval_dataloader):
+        #         if _eval_step >= 1:
+        #             break
+        #         y = eval_batch['input_ids'].to(device)
+        #         with torch.no_grad():
+        #             loss = model(y)
+        #             std = 0
+        #             if torch.cuda.device_count() > 1:
+        #                 std = loss.std().item()
+        #                 loss = loss.mean()
                     
-                    print(f'validation loss: {loss.item()}')
-                    print(f'validation loss std: {std}')
+        #             print(f'validation loss: {loss.item()}')
+        #             print(f'validation loss std: {std}')
 
         if step != 0 and step % GENERATE_EVERY == 0:
             model.eval()
