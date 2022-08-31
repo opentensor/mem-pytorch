@@ -173,7 +173,7 @@ def create_tokenized_datasets(tokenized_datasets):
 
 def create_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(
-        TOKENIZER_NAME, use_fast=False
+        TOKENIZER_NAME, use_fast=False, mlm=False
     )
     tokenizer.pad_token = "[PAD]"
 
