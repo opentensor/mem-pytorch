@@ -189,7 +189,18 @@ def create_hf_dataset():
     if STREAM:
 
         def encode(examples):
-            return tokenizer(examples['text'], truncation=True, padding='max_length')
+            if CONCATENATE_RAW is True:
+                pad = False
+            else:
+                pad = "max_length"
+
+
+            return tokenizer(
+                examples['text'], 
+                padding=pad,
+                truncation=True, 
+                max_length=SEQ_LEN
+            )
 
         raw_dataset = raw_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
@@ -345,10 +356,14 @@ if __name__ == "__main__":
         train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_dataset()
 
     if STREAM:
-        dataloader = DataLoader(raw_dataset, collate_fn=DataCollatorForLanguageModeling(
-            tokenizer=tokenizer,
-            mlm=False
-            ))
+        dataloader = DataLoader(
+            raw_dataset, 
+            collate_fn=DataCollatorForLanguageModeling(
+                tokenizer=tokenizer,
+                mlm=False
+            ),
+            batch_size=BATCH_SIZE,
+            )
         stream_train(model, raw_dataset, dataloader, tokenizer)
     else:
         train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
