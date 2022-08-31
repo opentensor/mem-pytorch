@@ -180,7 +180,7 @@ def create_tokenizer():
     return tokenizer
 
 def create_hf_dataset():
-    raw_dataset = load_dataset(DATASET_NAME, split="train", streaming=STREAM)
+    raw_dataset = load_dataset(DATASET_NAME, streaming=STREAM)
     raw_dataset = raw_dataset.with_format("torch")
 
     tokenizer = create_tokenizer()
@@ -202,9 +202,10 @@ def create_hf_dataset():
                 max_length=SEQ_LEN
             )
 
-        raw_dataset = raw_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+        data_train = raw_dataset['train'].map(encode, batched=True, remove_columns=["text", "meta"])
+        data_val = raw_dataset['validation'].map(encode, batched=True, remove_columns=["text", "meta"])
 
-        return raw_dataset, tokenizer
+        return data_train, data_val, tokenizer
     else:
 
     # pdb.set_trace()
@@ -251,14 +252,14 @@ def create_dataset():
 
 
 
-def stream_train(model, raw_dataset, dataloader, tokenizer):
+def stream_train(model, raw_dataset, train_dataloader, eval_dataloader, tokenizer):
 
     optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    for i in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+    for step in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
         # raw_dataset.set_epoch(i)
 
-        for i, batch in enumerate(tqdm(dataloader, total=5)):
+        for i, batch in enumerate(tqdm(train_dataloader, total=5)):
             if i == 5:
                 break
             # batch = {k: v.to(device) for k, v in batch.items()}
@@ -277,6 +278,43 @@ def stream_train(model, raw_dataset, dataloader, tokenizer):
             optim.zero_grad()
             print(f'training loss: {loss.item()}')
             print(f'training loss std: {std}')
+
+        if step % VALIDATE_EVERY == 0:
+            model.eval()
+            for _eval_step, eval_batch in enumerate(eval_dataloader):
+                if _eval_step >= 1:
+                    break
+                y = eval_batch['input_ids'].to(device)
+                with torch.no_grad():
+                    loss = model(y)
+                    std = 0
+                    if torch.cuda.device_count() > 1:
+                        std = loss.std().item()
+                        loss = loss.mean()
+                    
+                    print(f'validation loss: {loss.item()}')
+                    print(f'validation loss std: {std}')
+
+        if step != 0 and step % GENERATE_EVERY == 0:
+            model.eval()
+            inp = random.choice(data_val['input_ids'])[:-1]
+            # prime = decode_tokens(inp)
+            prime = tokenizer.decode(inp)
+            print(f'%s \n\n %s', (prime, '*' * 100))
+
+            inp = torch.tensor(inp)
+
+            inp = inp.reshape(1, -1)
+            inp = inp.to(device)
+
+            sample = model.generate(inp, GENERATE_LENGTH)
+            output_str = tokenizer.decode(sample[0])
+            print(output_str)
+
+
+        if step != 0 and step % SAVE_EVERY == 0:
+            torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{step}.pt")
+            print(f'saved model to {MODEL_NAME}_{step}.pt')
 
 
 def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
@@ -349,22 +387,30 @@ if __name__ == "__main__":
 
     if USE_HF_DATA:
         if STREAM:
-            raw_dataset, tokenizer = create_hf_dataset()
+            data_train, data_val, tokenizer = create_hf_dataset()
         else:
             train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_hf_dataset()
     else:
         train_dataloader, eval_dataloader, data_train, data_val, tokenizer = create_dataset()
 
     if STREAM:
-        dataloader = DataLoader(
-            raw_dataset, 
+        train_dataloader = DataLoader(
+            data_train, 
             collate_fn=DataCollatorForLanguageModeling(
                 tokenizer=tokenizer,
                 mlm=False
             ),
             batch_size=BATCH_SIZE,
             )
-        stream_train(model, raw_dataset, dataloader, tokenizer)
+        eval_dataloader = DataLoader(
+            data_val,
+            collate_fn=DataCollatorForLanguageModeling(
+                tokenizer=tokenizer,
+                mlm=False
+            ),
+            batch_size=BATCH_SIZE,
+        )
+        stream_train(model, data_val, train_dataloader, eval_dataloader, tokenizer)
     else:
         train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
 
