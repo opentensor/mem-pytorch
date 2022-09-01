@@ -305,9 +305,8 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
 
         if step != 0 and step % GENERATE_EVERY == 0:
             model.eval()
-            pdb.set_trace()
-            inp = data_val['input_ids'].take(1)
-            print(inp)
+            # pdb.set_trace()
+            inp = list(data_val.take(1))[0]['input_ids']
             # prime = decode_tokens(inp)
             prime = tokenizer.decode(inp)
             print(f'%s \n\n %s', (prime, '*' * 100))
