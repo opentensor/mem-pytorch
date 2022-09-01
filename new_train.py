@@ -24,19 +24,17 @@ from memory_efficient_attention_pytorch.autoregressive_wrapper import (
 )
 from memory_efficient_attention_pytorch.transformer import Transformer
 
-NUM_BATCHES = 100_000_000
+NUM_BATCHES = 10
 BATCH_SIZE = 64
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
 VALIDATE_EVERY = 5
 GENERATE_EVERY = 10
 GENERATE_LENGTH = 256
-SEQ_LEN = 256
+SEQ_LEN = 64
 CONCATENATE_RAW = False
 OVERWRITE_CACHE = False
 SAVE_EVERY = 50
-SAVE_DIR = "/notebooks/mem/models"
-MODEL_NAME = "DADDY"
 DATASET_NAME = "the_pile"
 TOKENIZER_NAME = "gpt2"
 USE_HF_DATA = True
@@ -178,10 +176,6 @@ def create_hf_dataset(set_names: Sequence[str]):
 
     train_dataset = train_dataset.with_format("torch")
     val_dataset = val_dataset.with_format("torch")
-    #train_dataset = load_dataset(DATASET_NAME, split="train", streaming=STREAM)
-    #val_dataset = load_dataset(DATASET_NAME, split="validation", streaming=STREAM)
-    #train_dataset = train_dataset.with_format("torch")
-    #val_dataset = val_dataset.with_format("torch")
 
     def encode(examples):
         if CONCATENATE_RAW is True:
@@ -196,9 +190,12 @@ def create_hf_dataset(set_names: Sequence[str]):
     data_train = train_dataset.map(
         encode, batched=True, remove_columns=["text", "meta"]
     )
-    data_val = val_dataset.map(
-        encode, batched=True, remove_columns=["text", "meta"]
-    )
+    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+
+    # TODO: cfg
+    seed, buffer_size = 42, 10_000
+    data_train = data_train.shuffle(seed, buffer_size=buffer_size)
+    data_val = data_val.shuffle(seed, buffer_size=buffer_size)
 
     return data_train, data_val, tokenizer
 
@@ -236,20 +233,21 @@ def create_dataset():
     return train_dataloader, eval_dataloader, data_train, data_val, tokenizer
 
 
-def stream_train(model, train_dataloader, eval_dataloader, tokenizer, data_val):
+def stream_train(model, train_dataloader, eval_dataloader, tokenizer, data_val, hp: DictConfig, model_name: str, save_dir: str):
 
-    optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    if not os.path.exists(f"{save_dir}/{model_name}"):
+        os.makedirs(f"{save_dir}/{model_name}")
+    optim = torch.optim.Adam(model.parameters(), lr=hp.learning_rate)
 
-    for step in tqdm(range(NUM_BATCHES), mininterval=10.0, desc="training"):
+    for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
         for i, batch in enumerate(tqdm(train_dataloader, total=5)):
             if i == 5:
                 break
 
-            try:
-                x = batch["input_ids"].to(device)
-            except AttributeError:
-                import pdb; pdb.set_trace()
+            x = batch["input_ids"].to(device)
 
             loss = model(x)
             std = 0
@@ -261,10 +259,9 @@ def stream_train(model, train_dataloader, eval_dataloader, tokenizer, data_val):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.step()
             optim.zero_grad()
-            print(f"training loss: {loss.item()}")
-            print(f"training loss std: {std}")
+            print(f"loss={loss.item():.4f} | {std=:.4f}")
 
-        if step % VALIDATE_EVERY == 0:
+        if step % hp.validate_every == 0:
             model.eval()
             for _eval_step, eval_batch in enumerate(eval_dataloader):
                 if _eval_step >= 1:
@@ -277,13 +274,12 @@ def stream_train(model, train_dataloader, eval_dataloader, tokenizer, data_val):
                         std = loss.std().item()
                         loss = loss.mean()
 
-                    print(f"validation loss: {loss.item()}")
-                    print(f"validation loss std: {std}")
+                    print(f"val loss={loss.item():.4f} | {std=:.4f}")
 
-        if step != 0 and step % GENERATE_EVERY == 0:
+        if step % hp.generate_every == 0:
             model.eval()
-            inp = random.choice(data_val["input_ids"])[:-1]
-            # prime = decode_tokens(inp)
+            ## There has to be a better way to do this?
+            inp = [x for x in data_val.take(1)][0]['input_ids']
             prime = tokenizer.decode(inp)
             print(f"%s \n\n %s", (prime, "*" * 100))
 
@@ -292,13 +288,13 @@ def stream_train(model, train_dataloader, eval_dataloader, tokenizer, data_val):
             inp = inp.reshape(1, -1)
             inp = inp.to(device)
 
-            sample = model.generate(inp, GENERATE_LENGTH)
+            sample = model.generate(inp, hp.generate_length)
             output_str = tokenizer.decode(sample[0])
             print(output_str)
 
-        if step != 0 and step % SAVE_EVERY == 0:
-            torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{step}.pt")
-            print(f"saved model to {MODEL_NAME}_{step}.pt")
+        if step != 0 and step % hp.save_every== 0:
+            torch.save(model.state_dict(), f"{save_dir}/{model_name}_{step}.pt")
+            print(f"saved model to {model_name}_{step}.pt")
 
 
 def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
@@ -370,7 +366,9 @@ def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
-    model = create_model(dim=cfg.model.dim, depth=cfg.model.depth, heads=cfg.model.heads)
+    model = create_model(
+        dim=cfg.model.dim, depth=cfg.model.depth, heads=cfg.model.heads
+    )
 
     if cfg.dataset.name == "bittensor":
         (
@@ -382,7 +380,9 @@ def main(cfg: DictConfig):
         ) = create_dataset()
         train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
     else:
-        data_train, data_val, tokenizer = create_hf_dataset(set_names=cfg.dataset.constituent_sets)
+        data_train, data_val, tokenizer = create_hf_dataset(
+            set_names=cfg.dataset.constituent_sets
+        )
         train_dataloader = DataLoader(
             data_train,
             collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
@@ -393,9 +393,16 @@ def main(cfg: DictConfig):
             collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
             batch_size=cfg.regime.batch_size,
         )
-        stream_train(model, data_val, train_dataloader, eval_dataloader, tokenizer)
-
+        stream_train(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            tokenizer=tokenizer,
+            data_val=data_val,
+            hp=cfg.regime,
+            model_name=cfg.model.name,
+            save_dir=cfg.save_dir,
+        )
 
 if __name__ == "__main__":
     main()
-

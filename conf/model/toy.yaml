@@ -1,0 +1,6 @@
+name: toy
+
+depth: 2
+heads: 2
+dim: 8
+sequence_length: 8
