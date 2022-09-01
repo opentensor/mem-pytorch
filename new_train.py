@@ -322,9 +322,9 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
                 print(output_str)
 
 
-            if i != 0 and i % SAVE_EVERY == 0:
-                torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{i}.pt")
-                print(f'saved model to {MODEL_NAME}_{i}.pt')
+            # if i != 0 and i % SAVE_EVERY == 0:
+            #     torch.save(model.module.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{i}.pt")
+            #     print(f'saved model to {MODEL_NAME}_{i}.pt')
 
 
 def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
