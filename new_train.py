@@ -30,7 +30,7 @@ BATCH_SIZE = 64
 GRADIENT_ACCUMULATE_EVERY = 4
 LEARNING_RATE = 2e-4
 VALIDATE_EVERY  = 5
-GENERATE_EVERY  = 1
+GENERATE_EVERY  = 50
 GENERATE_LENGTH = 256
 SEQ_LEN = 256
 CONCATENATE_RAW = False
@@ -262,13 +262,11 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
 
     optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    for index in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+    for index in tqdm(range(NUM_BATCHES), mininterval=10., desc='epochs'):
         # raw_dataset.set_epoch(i)
 
-        data_train.set_epoch(index)
-        for i, batch in enumerate(tqdm(train_dataloader, total=5)):
-            if i == 5:
-                break
+        # data_train.set_epoch(index)
+        for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
             # batch = {k: v.to(device) for k, v in batch.items()}
             
             x = batch['input_ids'].to(device)
@@ -305,28 +303,28 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
         #             print(f'validation loss: {loss.item()}')
         #             print(f'validation loss std: {std}')
 
-        if index != 0 and index % GENERATE_EVERY == 0:
-            model.eval()
-            # pdb.set_trace()
-            inp = list(data_val.take(1))[0]['input_ids']
-            # prime = decode_tokens(inp)
-            prime = tokenizer.decode(inp)
-            print(f'%s \n\n %s', (prime, '*' * 100))
+            if i != 0 and i % GENERATE_EVERY == 0:
+                model.eval()
+                # pdb.set_trace()
+                inp = list(data_val.take(1))[0]['input_ids']
+                # prime = decode_tokens(inp)
+                prime = tokenizer.decode(inp)
+                print(f'%s \n\n %s', (prime, '*' * 100))
 
-            inp = torch.tensor(inp)
+                inp = torch.tensor(inp)
 
-            inp = inp.reshape(1, -1)
-            inp = inp.to(device)
+                inp = inp.reshape(1, -1)
+                inp = inp.to(device)
 
-            gen_model = model.module if hasattr(model, 'module') else model
-            sample = gen_model.generate(inp, GENERATE_LENGTH)
-            output_str = tokenizer.decode(sample[0])
-            print(output_str)
+                gen_model = model.module if hasattr(model, 'module') else model
+                sample = gen_model.generate(inp, GENERATE_LENGTH)
+                output_str = tokenizer.decode(sample[0])
+                print(output_str)
 
 
-        if index != 0 and index % SAVE_EVERY == 0:
-            torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{index}.pt")
-            print(f'saved model to {MODEL_NAME}_{index}.pt')
+            if i != 0 and i % SAVE_EVERY == 0:
+                torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{i}.pt")
+                print(f'saved model to {MODEL_NAME}_{i}.pt')
 
 
 def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
