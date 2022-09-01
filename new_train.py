@@ -19,19 +19,14 @@ from memory_efficient_attention_pytorch.autoregressive_wrapper import (
 )
 from memory_efficient_attention_pytorch.transformer import Transformer
 
-SEQ_LEN = 64
-CONCATENATE_RAW = False
-TOKENIZER_NAME = "gpt2"
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def create_model(dim: int, depth: int, heads: int) -> torch.nn.Module:
+def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Module:
     model = Transformer(
         num_tokens=50257,
         dim=dim,
-        max_seq_len=SEQ_LEN,
+        max_seq_len=seq_len,
         depth=depth,
         heads=heads,
         causal=True,
@@ -57,15 +52,14 @@ def create_model(dim: int, depth: int, heads: int) -> torch.nn.Module:
     return model
 
 
-def create_tokenizer():
-    tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME, use_fast=True, mlm=False)
+def create_tokenizer(name: str = "gpt2"):
+    tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
     tokenizer.pad_token = "[PAD]"
 
     return tokenizer
 
 
-def create_streaming_dataset(set_names: Sequence[str]):
-    tokenizer = create_tokenizer()
+def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
 
     train_sets = []
     val_sets = []
@@ -79,9 +73,11 @@ def create_streaming_dataset(set_names: Sequence[str]):
     train_dataset = train_dataset.with_format("torch")
     val_dataset = val_dataset.with_format("torch")
 
+    tokenizer = create_tokenizer()
+
     def encode(examples):
         return tokenizer(
-            examples["text"], padding="max_length", truncation=True, max_length=SEQ_LEN
+            examples["text"], padding="max_length", truncation=True, max_length=seq_len
         )
 
     data_train = train_dataset.map(
@@ -174,42 +170,35 @@ def train(
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     model = create_model(
-        dim=cfg.model.dim, depth=cfg.model.depth, heads=cfg.model.heads
+        dim=cfg.model.dim,
+        depth=cfg.model.depth,
+        heads=cfg.model.heads,
+        seq_len=cfg.model.seq_len,
     )
 
-    if cfg.dataset.name == "bittensor":
-        (
-            train_dataloader,
-            eval_dataloader,
-            data_train,
-            data_val,
-            tokenizer,
-        ) = create_dataset()
-        train(model, train_dataloader, eval_dataloader, data_val, tokenizer)
-    else:
-        data_train, data_val, tokenizer = create_streaming_dataset(
-            set_names=cfg.dataset.constituent_sets
-        )
-        train_dataloader = DataLoader(
-            data_train,
-            collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-            batch_size=cfg.regime.batch_size,
-        )
-        eval_dataloader = DataLoader(
-            data_val,
-            collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-            batch_size=cfg.regime.batch_size,
-        )
-        train(
-            model=model,
-            train_dataloader=train_dataloader,
-            eval_dataloader=eval_dataloader,
-            tokenizer=tokenizer,
-            data_val=data_val,
-            hp=cfg.regime,
-            model_name=cfg.model.name,
-            save_dir=cfg.save_dir,
-        )
+    data_train, data_val, tokenizer = create_streaming_dataset(
+        set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.seq_len
+    )
+    train_dataloader = DataLoader(
+        data_train,
+        collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
+        batch_size=cfg.regime.batch_size,
+    )
+    eval_dataloader = DataLoader(
+        data_val,
+        collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
+        batch_size=cfg.regime.batch_size,
+    )
+    train(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        tokenizer=tokenizer,
+        data_val=data_val,
+        hp=cfg.regime,
+        model_name=cfg.model.name,
+        save_dir=cfg.save_dir,
+    )
 
 
 if __name__ == "__main__":
