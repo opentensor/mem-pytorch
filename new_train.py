@@ -278,6 +278,8 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
             if torch.cuda.device_count() > 1:
                 std = loss.std().item()
                 loss = loss.mean()
+            
+            pdb.set_trace()
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
