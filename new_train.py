@@ -262,10 +262,10 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
 
     optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    for step in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
+    for index in tqdm(range(NUM_BATCHES), mininterval=10., desc='training'):
         # raw_dataset.set_epoch(i)
 
-        data_train.set_epoch(step)
+        data_train.set_epoch(index)
         for i, batch in enumerate(tqdm(train_dataloader, total=5)):
             if i == 5:
                 break
@@ -279,7 +279,7 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
                 std = loss.std().item()
                 loss = loss.mean()
             
-            pdb.set_trace()
+            # pdb.set_trace()
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -305,7 +305,7 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
         #             print(f'validation loss: {loss.item()}')
         #             print(f'validation loss std: {std}')
 
-        if step != 0 and step % GENERATE_EVERY == 0:
+        if index != 0 and index % GENERATE_EVERY == 0:
             model.eval()
             # pdb.set_trace()
             inp = list(data_val.take(1))[0]['input_ids']
@@ -324,9 +324,9 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
             print(output_str)
 
 
-        if step != 0 and step % SAVE_EVERY == 0:
-            torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{step}.pt")
-            print(f'saved model to {MODEL_NAME}_{step}.pt')
+        if index != 0 and index % SAVE_EVERY == 0:
+            torch.save(model.state_dict(), f"{SAVE_DIR}/{MODEL_NAME}_{index}.pt")
+            print(f'saved model to {MODEL_NAME}_{index}.pt')
 
 
 def train(model, train_dataloader, eval_dataloader, data_val, tokenizer):
