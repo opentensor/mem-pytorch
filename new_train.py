@@ -305,7 +305,7 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
 
         if step != 0 and step % GENERATE_EVERY == 0:
             model.eval()
-            pdb.set_trace()
+            # pdb.set_trace()
             inp = list(data_val.take(1))[0]['input_ids']
             # prime = decode_tokens(inp)
             prime = tokenizer.decode(inp)
@@ -316,7 +316,8 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
             inp = inp.reshape(1, -1)
             inp = inp.to(device)
 
-            sample = model.generate(inp, GENERATE_LENGTH)
+            gen_model = model.module if hasattr(model, 'module') else model
+            sample = gen_model.generate(inp, GENERATE_LENGTH)
             output_str = tokenizer.decode(sample[0])
             print(output_str)
 
