@@ -173,11 +173,11 @@ def main(cfg: DictConfig):
         dim=cfg.model.dim,
         depth=cfg.model.depth,
         heads=cfg.model.heads,
-        seq_len=cfg.model.seq_len,
+        seq_len=cfg.model.sequence_length,
     )
 
     data_train, data_val, tokenizer = create_streaming_dataset(
-        set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.seq_len
+        set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length
     )
     train_dataloader = DataLoader(
         data_train,
