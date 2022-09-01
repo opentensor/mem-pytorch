@@ -305,21 +305,23 @@ def stream_train(model, data_train, data_val, train_dataloader, eval_dataloader,
 
             if i != 0 and i % GENERATE_EVERY == 0:
                 model.eval()
-                # pdb.set_trace()
-                inp = list(data_val.take(1))[0]['input_ids']
-                # prime = decode_tokens(inp)
-                prime = tokenizer.decode(inp)
-                print(f'%s \n\n %s', (prime, '*' * 100))
 
-                inp = torch.tensor(inp)
+                with torch.no_grad():
+                    # pdb.set_trace()
+                    inp = list(data_val.take(1))[0]['input_ids']
+                    # prime = decode_tokens(inp)
+                    prime = tokenizer.decode(inp)
+                    print(f'%s \n\n %s', (prime, '*' * 100))
 
-                inp = inp.reshape(1, -1)
-                inp = inp.to(device)
+                    inp = torch.tensor(inp)
 
-                gen_model = model.module if hasattr(model, 'module') else model
-                sample = gen_model.generate(inp, GENERATE_LENGTH)
-                output_str = tokenizer.decode(sample[0])
-                print(output_str)
+                    inp = inp.reshape(1, -1)
+                    inp = inp.to(device)
+
+                    gen_model = model.module if hasattr(model, 'module') else model
+                    sample = gen_model.generate(inp, GENERATE_LENGTH)
+                    output_str = tokenizer.decode(sample[0])
+                    print(output_str)
 
 
             # if i != 0 and i % SAVE_EVERY == 0:
