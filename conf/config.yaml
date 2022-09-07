@@ -1,0 +1,6 @@
+defaults:
+  - model: toy
+  - dataset: toy
+  - regime: toy
+
+save_dir: "models/"

@@ -3,3 +3,6 @@ transformers
 datasets
 fsspec==2022.7.1
 zstandard
+hydra-core
+einops
+
