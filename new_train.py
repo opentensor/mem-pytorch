@@ -112,17 +112,14 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=5)):
-            if i == 5:
-                break
-
-            x = batch["input_ids"].to(device)
-
+        for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
+            x = batch['input_ids'].to(device)
             loss = model(x)
             std = 0
             if torch.cuda.device_count() > 1:
                 loss = loss.mean()
                 std = loss.std().item()
+
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -151,11 +148,6 @@ def train(
             inp = [x for x in data_val.take(1)][0]["input_ids"]
             prime = tokenizer.decode(inp)
             print(f"%s \n\n %s", (prime, "*" * 100))
-
-            inp = torch.tensor(inp)
-
-            inp = inp.reshape(1, -1)
-            inp = inp.to(device)
 
             sample = model.generate(inp, hp.generate_length)
             output_str = tokenizer.decode(sample[0])
