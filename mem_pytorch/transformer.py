@@ -3,8 +3,8 @@ from torch import nn, einsum
 import torch.nn.functional as F
 
 from einops import rearrange
-from memory_efficient_attention_pytorch import FlashAttention, Attention
-from memory_efficient_attention_pytorch.reversible import ReversibleSequence
+from mem_pytorch import FlashAttention, Attention
+from mem_pytorch.reversible import ReversibleSequence
 
 def exists(val):
     return val is not None

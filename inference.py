@@ -1,5 +1,5 @@
-from memory_efficient_attention_pytorch.transformer import Transformer
-from memory_efficient_attention_pytorch.autoregressive_wrapper import AutoregressiveWrapper
+from mem_pytorch.transformer import Transformer
+from mem_pytorch.autoregressive_wrapper import AutoregressiveWrapper
 
 import pdb
 

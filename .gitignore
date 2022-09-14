@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 
 bt_dataset_cached_*_*.pkl
+models
+outputs
 
 # C extensions
 *.so

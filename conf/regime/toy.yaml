@@ -1,9 +1,9 @@
 num_batches: 10
 batch_size: 8
 gradient_accumulate_every: 4
-validate_every: 4
-generate_every: 4
-generate_length: 8
+validate_every: 100
+generate_every: 250
+generate_length: 256
 
-save_every: 4
-learning_rate: 2e-4
+save_every: 1000
+learning_rate: 3e-4

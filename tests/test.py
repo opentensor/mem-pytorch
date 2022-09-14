@@ -1,8 +1,8 @@
 import torch
-from memory_efficient_attention_pytorch import Attention
+from mem_pytorch import Attention
 
-from memory_efficient_attention_pytorch.memory_efficient_attention import attention
-from memory_efficient_attention_pytorch.flash_attention import FlashAttention, FlashAttentionFunction
+from mem_pytorch.memory_efficient_attention import attention
+from mem_pytorch.flash_attention import FlashAttention, FlashAttentionFunction
 
 # constants
 

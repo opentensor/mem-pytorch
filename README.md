@@ -2,7 +2,7 @@
 
 Implementation of a memory efficient multi-head attention as proposed in the paper, <a href="https://arxiv.org/abs/2112.05682">Self-attention Does Not Need O(n²) Memory</a>. In addition, the module will take care of masking, causal masking, as well as cross attention.
 
-This repository also contains a <a href="https://github.com/lucidrains/memory-efficient-attention-pytorch/blob/main/memory_efficient_attention_pytorch/flash_attention.py">naive non-CUDA implementation</a> of the improvements made by <a href="https://tridao.me/">Tri Dao</a> with his <a href="https://github.com/HazyResearch/flash-attention">Flash Attention</a> paper, for educational purposes. It is a game changer for attention and building long-context transformers.
+This repository also contains a <a href="https://github.com/lucidrains/memory-efficient-attention-pytorch/blob/main/mem_pytorch/flash_attention.py">naive non-CUDA implementation</a> of the improvements made by <a href="https://tridao.me/">Tri Dao</a> with his <a href="https://github.com/HazyResearch/flash-attention">Flash Attention</a> paper, for educational purposes. It is a game changer for attention and building long-context transformers.
 
 ## Install
 
@@ -16,7 +16,7 @@ For autoregressive language model
 
 ```python
 import torch
-from memory_efficient_attention_pytorch import Attention
+from mem_pytorch import Attention
 
 attn = Attention(
     dim = 512,
@@ -36,7 +36,7 @@ Cross attention
 
 ```python
 import torch
-from memory_efficient_attention_pytorch import Attention
+from mem_pytorch import Attention
 
 cross_attn = Attention(
     dim = 512,

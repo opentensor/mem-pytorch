@@ -13,30 +13,49 @@ from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
 )
+import argparse
 
-from memory_efficient_attention_pytorch.autoregressive_wrapper import (
+from mem_pytorch.transformer_x import CosineSimCausalTransformer
+
+
+from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
 )
-from memory_efficient_attention_pytorch.transformer import Transformer
+from mem_pytorch.transformer import Transformer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--use-cuda-kernel', default = False, action = 'store_true')
+arguments = parser.parse_args()
 
-def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Module:
-    model = Transformer(
+
+def create_model(dim: int, depth: int, heads: int, seq_len: int, use_cuda_kernel: bool) -> torch.nn.Module:
+    # model = Transformer(
+    #     num_tokens=50257,
+    #     dim=dim,
+    #     max_seq_len=seq_len,
+    #     depth=depth,
+    #     heads=heads,
+    #     causal=True,
+    #     q_bucket_size=1024,
+    #     k_bucket_size=2048,
+    #     ff_chunks=5,
+    #     use_flash_attn=True,
+    # )
+
+    model = CosineSimCausalTransformer(
         num_tokens=50257,
         dim=dim,
         max_seq_len=seq_len,
         depth=depth,
         heads=heads,
         causal=True,
-        q_bucket_size=1024,
-        k_bucket_size=2048,
-        ff_chunks=5,
-        use_flash_attn=True,
+        use_cuda_kernel = use_cuda_kernel,
+
     )
 
-    model = AutoregressiveWrapper(model)
+    # model = AutoregressiveWrapper(model)
 
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -112,9 +131,9 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
+        for i, batch in enumerate(tqdm(train_dataloader, total=100, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
-            loss = model(x)
+            loss = model(x, return_loss=True)
             std = 0
             if torch.cuda.device_count() > 1:
                 loss = loss.mean()
@@ -127,35 +146,37 @@ def train(
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
-        if step % hp.validate_every == 0:
-            model.eval()
-            for _eval_step, eval_batch in enumerate(eval_dataloader):
-                if _eval_step >= 1:
-                    break
-                y = eval_batch["input_ids"].to(device)
-                with torch.no_grad():
-                    loss = model(y)
-                    std = 0
-                    if torch.cuda.device_count() > 1:
-                        std = loss.std().item()
-                        loss = loss.mean()
+            if i % hp.validate_every == 0:
+                model.eval()
+                for _eval_step, eval_batch in enumerate(eval_dataloader):
+                    if _eval_step >= 1:
+                        break
+                    y = eval_batch["input_ids"].to(device)
+                    with torch.no_grad():
+                        loss = model(y, return_loss=True)
+                        std = 0
+                        if torch.cuda.device_count() > 1:
+                            std = loss.std().item()
+                            loss = loss.mean()
 
-                    print(f"val loss={loss.item():.4f} | {std=:.4f}")
+                        print(f"val loss={loss.item():.4f} | {std=:.4f}")
 
-        if step % hp.generate_every == 0:
-            model.eval()
-            ## There has to be a better way to do this?
-            inp = [x for x in data_val.take(1)][0]["input_ids"]
-            prime = tokenizer.decode(inp)
-            print(f"%s \n\n %s", (prime, "*" * 100))
+            if i % hp.generate_every == 0:
+                model.eval()
+                ## There has to be a better way to do this?
+                inp = [x for x in data_val.take(1)][0]["input_ids"]
+                prime = tokenizer.decode(inp)
+                print(f"\n\n {prime} \n\n {'-' * 80} \n")
+                inp = torch.tensor(inp).to(device)
 
-            sample = model.generate(inp, hp.generate_length)
-            output_str = tokenizer.decode(sample[0])
-            print(output_str)
 
-        if step != 0 and step % hp.save_every == 0:
-            torch.save(model.state_dict(), f"{save_dir}/{model_name}_{step}.pt")
-            print(f"saved model to {model_name}_{step}.pt")
+                sample = model.generate(inp[None, ...], hp.generate_length)
+                output_str = tokenizer.decode(sample[0])
+                print(output_str)
+
+            if i != 0 and i % hp.save_every == 0:
+                torch.save(model.state_dict(), f"{save_dir}/{model_name}_{i}.pt")
+                print(f"saved model to {model_name}_{i}.pt")
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -166,6 +187,8 @@ def main(cfg: DictConfig):
         depth=cfg.model.depth,
         heads=cfg.model.heads,
         seq_len=cfg.model.sequence_length,
+
+        use_cuda_kernel=cfg.model.use_cuda_kernel,
     )
 
     data_train, data_val, tokenizer = create_streaming_dataset(
