@@ -146,7 +146,7 @@ def train(
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
-            if i % hp.validate_every == 0:
+            if i != 0 i % hp.validate_every == 0:
                 model.eval()
                 for _eval_step, eval_batch in enumerate(eval_dataloader):
                     if _eval_step >= 1:
@@ -161,7 +161,7 @@ def train(
 
                         print(f"val loss={loss.item():.4f} | {std=:.4f}")
 
-            if i % hp.generate_every == 0:
+            if i != 0 i % hp.generate_every == 0:
                 # if statement to  check if the device is cuda:0
                 if torch.cuda.current_device() == 0:
 
