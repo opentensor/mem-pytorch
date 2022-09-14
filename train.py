@@ -131,7 +131,7 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=100, mininterval=10., desc='training')):
+        for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
             loss = model(x, return_loss=True)
             std = 0
@@ -162,21 +162,31 @@ def train(
                         print(f"val loss={loss.item():.4f} | {std=:.4f}")
 
             if i % hp.generate_every == 0:
-                model.eval()
-                ## There has to be a better way to do this?
-                inp = [x for x in data_val.take(1)][0]["input_ids"]
-                prime = tokenizer.decode(inp)
-                print(f"\n\n {prime} \n\n {'-' * 80} \n")
-                inp = torch.tensor(inp).to(device)
+                # if statement to  check if the device is cuda:0
+                if torch.cuda.current_device() == 0:
+
+                    if torch.cuda.device_count() > 1:
+                        gen_model = model.module
+                    else:
+                        gen_model = model
+
+                    
+                    gen_model.eval()
+                    ## There has to be a better way to do this?
+                    inp = [x for x in data_val.take(1)][0]["input_ids"]
+                    prime = tokenizer.decode(inp)
+                    print(f"\n\n {prime} \n\n {'-' * 80} \n")
+                    inp = torch.tensor(inp).to(device)
 
 
-                sample = model.generate(inp[None, ...], hp.generate_length)
-                output_str = tokenizer.decode(sample[0])
-                print(output_str)
+                    sample = gen_model.generate(inp[None, ...], hp.generate_length)
+                    output_str = tokenizer.decode(sample[0])
+                    print(output_str)
 
             if i != 0 and i % hp.save_every == 0:
-                torch.save(model.state_dict(), f"{save_dir}/{model_name}_{i}.pt")
-                print(f"saved model to {model_name}_{i}.pt")
+                if torch.cuda.current_device() == 0:
+                    torch.save(model.state_dict(), f"{save_dir}/{model_name}_{i}.pt")
+                    print(f"saved model to {model_name}_{i}.pt")
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
