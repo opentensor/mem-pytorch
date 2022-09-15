@@ -200,7 +200,7 @@ def main(cfg: DictConfig):
         "heads": cfg.model.heads,
         "depth": cfg.model.depth,
         "dim": cfg.model.dim,
-        "seq_len": cfg.model.seq_len,
+        "sequence_length": cfg.model.sequence_length,
     }
 
     model = create_model(
