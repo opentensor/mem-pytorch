@@ -150,6 +150,7 @@ def train(
 
             x = batch['input_ids'].to(device)
             with torch.cuda.amp.autocast(enabled=fp16):
+                pdb.trace()
                 loss = model(x, return_loss=True)
                 std = 0
                 if torch.cuda.device_count() > 1:
