@@ -25,10 +25,6 @@ from mem_pytorch.transformer import Transformer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--use-cuda-kernel', default = False, action = 'store_true')
-arguments = parser.parse_args()
-
 
 def create_model(dim: int, depth: int, heads: int, seq_len: int, use_cuda_kernel: bool) -> torch.nn.Module:
     # model = Transformer(
