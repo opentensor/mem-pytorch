@@ -124,6 +124,7 @@ def train(
     eval_dataloader,
     tokenizer,
     data_val,
+    fp16: bool,
     hp: DictConfig,
     model_name: str,
     save_dir: str,
@@ -138,7 +139,12 @@ def train(
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
         for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
-            x = batch['input_ids'].to(device)
+            if fp16:
+                batch = {k: v.half() for k, v in batch.items()}
+
+            batch = {k: v.to(device) for k, v in batch.items()}
+
+            x = batch['input_ids']
             loss = model(x, return_loss=True)
             std = 0
             if torch.cuda.device_count() > 1:
@@ -169,6 +175,7 @@ def train(
                             loss = loss.mean()
 
                         print(f"val loss={loss.item():.4f} | {std=:.4f}")
+                        wandb.log({"val_loss": loss.item()})
 
             if i != 0 and i % hp.generate_every == 0:
                 # if statement to  check if the device is cuda:0
@@ -245,6 +252,7 @@ def main(cfg: DictConfig):
         tokenizer=tokenizer,
         data_val=data_val,
         hp=cfg.regime,
+        fp16=cfg.model.fp16,
         model_name=cfg.model.name,
         save_dir=cfg.save_dir,
     )
