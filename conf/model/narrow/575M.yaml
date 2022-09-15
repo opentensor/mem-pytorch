@@ -1,7 +1,7 @@
 name: narrow_575M
 
 depth: 64
-heads: 2
+heads: 32
 dim: 256
 sequence_length: 256
 use_cuda_kernel: False
