@@ -59,9 +59,8 @@ def create_model(
     )
 
 
-    if fp16:
-        model = model.half()
-
+    # if fp16:
+    #     model = model.half()
     # model = AutoregressiveWrapper(model)
 
     if torch.cuda.device_count() > 1:
@@ -149,9 +148,9 @@ def train(
 
             # batch = {k: v.to(device) for k, v in batch.items()}
 
-            x = batch['input_ids'].to(device)
+            x = batch['input_ids'].to(device, dtype=torch.float)
             with torch.cuda.amp.autocast(enabled=fp16):
-                loss = model(x.float(), return_loss=True)
+                loss = model(x, return_loss=True)
                 std = 0
                 if torch.cuda.device_count() > 1:
                     loss = loss.mean()
