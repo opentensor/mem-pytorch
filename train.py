@@ -198,7 +198,7 @@ def main(cfg: DictConfig):
         "epochs": cfg.regime.num_batches,
         "batch_size": cfg.regime.batch_size,
         "heads": cfg.model.heads,
-        "layers": cfg.model.layers,
+        "depth": cfg.model.depth,
         "dim": cfg.model.dim,
         "seq_len": cfg.model.seq_len,
     }
