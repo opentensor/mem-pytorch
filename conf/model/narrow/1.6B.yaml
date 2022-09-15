@@ -1,0 +1,7 @@
+name: narrow
+
+depth: 8
+heads: 6
+dim: 4096
+sequence_length: 256
+use_cuda_kernel: True
