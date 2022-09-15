@@ -140,11 +140,12 @@ def train(
 
         for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
             if fp16:
-                batch = {k: v.half() for k, v in batch.items()}
+                # batch = {k: v.half() for k, v in batch.items()}
+                batch['input_ids'] = batch['input_ids'].half()
 
-            batch = {k: v.to(device) for k, v in batch.items()}
+            # batch = {k: v.to(device) for k, v in batch.items()}
 
-            x = batch['input_ids']
+            x = batch['input_ids'].to(device)
             loss = model(x, return_loss=True)
             std = 0
             if torch.cuda.device_count() > 1:
