@@ -150,22 +150,24 @@ class CosineSimCausalTransformer(nn.Module):
         return out[:, n:]
 
     def forward(self, x, return_loss = False):
-        if return_loss:
-            x, labels = x[:, :-1], x[:, 1:]
+        with torch.cuda.amp.autocast():
+            if return_loss:
+                x, labels = x[:, :-1], x[:, 1:]
 
-        x = self.token_emb(x)
-        x = x + self.pos_emb(torch.arange(x.shape[1], device = x.device))
+            x = self.token_emb(x)
+            x = x + self.pos_emb(torch.arange(x.shape[1], device = x.device))
 
-        for attn, attn_norm, ff, ff_norm in self.layers:
-            x = attn(x) + x * self.residual_scale
-            x = attn_norm(x)
-            x = ff(x) + x * self.residual_scale
-            x = ff_norm(x)
+            for attn, attn_norm, ff, ff_norm in self.layers:
+                x = attn(x) + x * self.residual_scale
+                x = attn_norm(x)
+                x = ff(x) + x * self.residual_scale
+                x = ff_norm(x)
 
-        logits = self.to_logits(x)
+            logits = self.to_logits(x)
 
-        if not return_loss:
-            return logits
+            if not return_loss:
+                return logits
 
-        loss = F.cross_entropy(rearrange(logits, 'b c n -> b n c'), labels)
+            loss = F.cross_entropy(rearrange(logits, 'b c n -> b n c'), labels)
+            
         return loss

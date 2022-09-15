@@ -102,17 +102,17 @@ class FlashCosineSimAttention(Function):
         attn_bias = default(attn_bias, torch.empty(1, 0, 0, device = q.device, dtype = dtype))
 
 
-        with torch.cuda.amp.autocast():
-            o, l = forward(
-                q, k, v,
-                mask,
-                attn_bias,
-                scale,
-                causal,
-                row_tile_size,
-                col_tile_size,
-                col_tiles
-            )
+        
+        o, l = forward(
+            q, k, v,
+            mask,
+            attn_bias,
+            scale,
+            causal,
+            row_tile_size,
+            col_tile_size,
+            col_tiles
+        )
 
         o.div_(l[..., None].clamp(min = 1e-20))
 
