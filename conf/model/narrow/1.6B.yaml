@@ -5,3 +5,4 @@ heads: 6
 dim: 4096
 sequence_length: 256
 use_cuda_kernel: True
+fp16: True

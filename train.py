@@ -26,7 +26,14 @@ from mem_pytorch.transformer import Transformer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def create_model(dim: int, depth: int, heads: int, seq_len: int, use_cuda_kernel: bool) -> torch.nn.Module:
+def create_model(
+    dim: int, 
+    depth: int, 
+    heads: int, 
+    seq_len: int, 
+    use_cuda_kernel: bool,
+    fp16: bool,
+    ) -> torch.nn.Module:
     # model = Transformer(
     #     num_tokens=50257,
     #     dim=dim,
@@ -56,6 +63,9 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int, use_cuda_kernel
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model)
+
+    if fp16:
+        model = model.half()
 
     model.to(device)
 
@@ -208,7 +218,7 @@ def main(cfg: DictConfig):
         depth=cfg.model.depth,
         heads=cfg.model.heads,
         seq_len=cfg.model.sequence_length,
-
+        fp16=cfg.model.fp16,
         use_cuda_kernel=cfg.model.use_cuda_kernel,
     )
 
