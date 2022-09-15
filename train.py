@@ -194,7 +194,7 @@ def main(cfg: DictConfig):
     wandb.init(project="mem-pytorch", entity="robertmyers")
 
     wandb.config = {
-        "learning_rate": cfg.learning_rate,
+        "learning_rate": cfg.regime.learning_rate,
         "epochs": cfg.num_batches,
         "batch_size": cfg.batch_size,
         "heads": cfg.heads,
