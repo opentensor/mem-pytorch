@@ -1,8 +1,8 @@
-name: narrow_575M
+name: narrow_620M
 
-depth: 4
+depth: 12
 heads: 2
-dim: 8192
+dim: 2048
 sequence_length: 256
 use_cuda_kernel: True
 fp16: False
