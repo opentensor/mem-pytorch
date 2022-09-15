@@ -195,12 +195,12 @@ def main(cfg: DictConfig):
 
     wandb.config = {
         "learning_rate": cfg.regime.learning_rate,
-        "epochs": cfg.num_batches,
-        "batch_size": cfg.batch_size,
-        "heads": cfg.heads,
-        "layers": cfg.layers,
-        "dim": cfg.dim,
-        "seq_len": cfg.seq_len,
+        "epochs": cfg.regime.num_batches,
+        "batch_size": cfg.regime.batch_size,
+        "heads": cfg.model.heads,
+        "layers": cfg.model.layers,
+        "dim": cfg.model.dim,
+        "seq_len": cfg.model.seq_len,
     }
 
     model = create_model(
