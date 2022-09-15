@@ -1,6 +1,6 @@
 name: narrow
 
-depth: 6
+depth: 8
 heads: 24
 dim: 2048
 sequence_length: 256
