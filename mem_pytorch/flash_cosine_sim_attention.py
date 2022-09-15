@@ -4,7 +4,6 @@ from torchtyping import TensorType
 from torch import einsum
 import torch.nn.functional as F
 from torch.autograd import Function
-from torch.cuda.amp import autocast
 
 # try to import cuda
 
@@ -75,7 +74,6 @@ def plain_cosine_sim_attention(
 
 class FlashCosineSimAttention(Function):
     @staticmethod
-    @autocast()
     def forward(
         ctx,
         q, k, v,
@@ -104,7 +102,7 @@ class FlashCosineSimAttention(Function):
         attn_bias = default(attn_bias, torch.empty(1, 0, 0, device = q.device, dtype = dtype))
 
 
-        
+    
         o, l = forward(
             q, k, v,
             mask,

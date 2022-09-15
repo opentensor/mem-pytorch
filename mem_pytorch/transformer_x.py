@@ -3,7 +3,6 @@ from functools import partial
 from torch import nn
 import torch.nn.functional as F
 
-from torch.cuda.amp import autocast
 
 
 try:
@@ -152,7 +151,6 @@ class CosineSimCausalTransformer(nn.Module):
 
         return out[:, n:]
 
-    @autocast()
     def forward(self, x, return_loss = False):
         if return_loss:
             x, labels = x[:, :-1], x[:, 1:]
