@@ -139,18 +139,19 @@ def train(
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
         for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
-            if fp16:
-                # batch = {k: v.half() for k, v in batch.items()}
-                batch['input_ids'] = batch['input_ids'].half()
+            # if fp16:
+            #     # batch = {k: v.half() for k, v in batch.items()}
+            #     batch['input_ids'] = batch['input_ids'].half()
 
             # batch = {k: v.to(device) for k, v in batch.items()}
 
             x = batch['input_ids'].to(device)
-            loss = model(x, return_loss=True)
-            std = 0
-            if torch.cuda.device_count() > 1:
-                loss = loss.mean()
-                std = loss.std().item()
+            with torch.cuda.amp.autocast(amp=fp16):
+                loss = model(x, return_loss=True)
+                std = 0
+                if torch.cuda.device_count() > 1:
+                    loss = loss.mean()
+                    std = loss.std().item()
 
             loss.backward()
 
