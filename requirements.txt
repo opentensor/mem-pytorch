@@ -6,3 +6,4 @@ zstandard
 hydra-core
 einops
 torchtyping
+wandv

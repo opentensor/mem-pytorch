@@ -16,7 +16,7 @@ from transformers import (
 import argparse
 
 from mem_pytorch.transformer_x import CosineSimCausalTransformer
-
+import wandb
 
 from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
@@ -146,6 +146,9 @@ def train(
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
+            if i != 0 and step % hp.eval_every == 0:
+                wandb.log({"loss": loss.item()})
+
             if i != 0 and i % hp.validate_every == 0:
                 model.eval()
                 for _eval_step, eval_batch in enumerate(eval_dataloader):
@@ -192,6 +195,18 @@ def train(
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
+    wandb.init(project="mem-pytorch", entity="robertmyers")
+
+    wandb.config = {
+        "learning_rate": cfg.learning_rate,
+        "epochs": cfg.num_batches,
+        "batch_size": cfg.batch_size,
+        "heads": cfg.heads,
+        "layers": cfg.layers,
+        "dim": cfg.dim,
+        "seq_len": cfg.seq_len,
+    }
+
     model = create_model(
         dim=cfg.model.dim,
         depth=cfg.model.depth,
@@ -200,6 +215,9 @@ def main(cfg: DictConfig):
 
         use_cuda_kernel=cfg.model.use_cuda_kernel,
     )
+
+    wandb.watch(model)
+
 
     data_train, data_val, tokenizer = create_streaming_dataset(
         set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length
