@@ -1,6 +1,6 @@
 name: narrow_575M
 
-depth: 128
+depth: 64
 heads: 8
 dim: 256
 sequence_length: 256
