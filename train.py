@@ -58,14 +58,16 @@ def create_model(
 
     )
 
+
+    if fp16:
+        model = model.half()
+        
     # model = AutoregressiveWrapper(model)
 
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model)
 
-    # if fp16:
-    #     model = model.half()
 
     model.to(device)
 
@@ -134,6 +136,8 @@ def train(
         os.makedirs(save_dir)
     if not os.path.exists(f"{save_dir}/{model_name}"):
         os.makedirs(f"{save_dir}/{model_name}")
+
+    scaler = torch.cuda.amp.GradScaler() if fp16 else None
     optim = torch.optim.Adam(model.parameters(), lr=hp.learning_rate)
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
@@ -153,11 +157,20 @@ def train(
                     loss = loss.mean()
                     std = loss.std().item()
 
-            loss.backward()
+            if fp16:
+                scaler.scale(loss).backward()
+                scaler.unscale_(optim)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
+                scaler.step(optim)
+                scaler.update()
+            else:
+                loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-            optim.step()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                optim.step()
+            
             optim.zero_grad()
+
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
             if i != 0 and step % hp.eval_every == 0:
