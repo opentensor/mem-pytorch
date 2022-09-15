@@ -64,8 +64,8 @@ def create_model(
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model)
 
-    if fp16:
-        model = model.half()
+    # if fp16:
+    #     model = model.half()
 
     model.to(device)
 
