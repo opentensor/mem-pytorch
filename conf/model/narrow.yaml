@@ -1,7 +1,7 @@
 name: narrow
 
-depth: 4
-heads: 48
+depth: 8
+heads: 96
 dim: 4096
 sequence_length: 256
 use_cuda_kernel: True
