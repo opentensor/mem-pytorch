@@ -146,7 +146,7 @@ def train(
             # batch = {k: v.to(device) for k, v in batch.items()}
 
             x = batch['input_ids'].to(device)
-            with torch.cuda.amp.autocast(amp=fp16):
+            with torch.cuda.amp.autocast(enabled=fp16):
                 loss = model(x, return_loss=True)
                 std = 0
                 if torch.cuda.device_count() > 1:
