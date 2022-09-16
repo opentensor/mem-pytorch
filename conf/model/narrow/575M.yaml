@@ -4,6 +4,6 @@ depth: 24
 heads: 24
 dim: 1800
 sequence_length: 256
-use_cuda_kernel: False
+use_cuda_kernel: True
 fp16: False
 
