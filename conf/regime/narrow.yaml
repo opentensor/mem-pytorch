@@ -1,5 +1,5 @@
 num_batches: 10
-batch_size: 512
+batch_size: 640
 gradient_accumulate_every: 20
 validate_every: 100
 generate_every: 200
