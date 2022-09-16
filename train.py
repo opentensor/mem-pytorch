@@ -187,7 +187,7 @@ def train(
                         loss = model(y, return_loss=True)
                         std = 0
                         if torch.cuda.device_count() > 1:
-                            std = loss.std().item()
+                            # std = loss.std().item()
                             loss = loss.mean()
 
                         print(f"val loss={loss.item():.4f} | {std=:.4f}")
