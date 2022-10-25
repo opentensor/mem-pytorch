@@ -1,6 +1,6 @@
 name: 1.3b
 
-depth: 12
-heads: 12
+depth: 24
+heads: 24
 dim: 1024
 sequence_length: 1024
