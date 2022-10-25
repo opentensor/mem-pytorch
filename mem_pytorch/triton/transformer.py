@@ -61,10 +61,32 @@ class Attention(nn.Module):
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
 
+        # q = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
+        # k = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
+        # v = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
+
+        # reshape q, k, v to (BATCH, H, N_CTX, D_HEAD)
+
+        # q = q.contiguous()
+        # k = k.contiguous()
+        # v = v.contiguous()
+
+        # q = q.view(BATCH, H, N_CTX, D_HEAD)
+        # k = k.view(BATCH, H, N_CTX, D_HEAD)
+        # v = v.view(BATCH, H, N_CTX, D_HEAD)
+
+        # q = q.permute(0, 2, 1, 3)
+        # k = k.permute(0, 2, 1, 3)
+        # v = v.permute(0, 2, 1, 3)
+
+
+
         # q = q * self.scale
-        q, k = map(l2norm, (q, k))
+        # q, k = map(l2norm, (q, k))
 
-
+        print('q', q.shape)
+        print('k', k.shape)
+        print('v', v.shape)
         out = triton_flash_attention(q, k, v, self.scale)
         out = rearrange(out, 'b h n d -> b n (h d)')
         out = self.to_out(out)
