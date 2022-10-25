@@ -128,36 +128,48 @@ def train(
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
-        if step % hp.validate_every == 0:
-            model.eval()
-            for _eval_step, eval_batch in enumerate(eval_dataloader):
-                if _eval_step >= 1:
-                    break
-                y = eval_batch["input_ids"].to(device)
-                with torch.no_grad():
-                    loss = model(y)
-                    std = 0
+            if i != 0 and i % hp.validate_every == 0:
+                model.eval()
+                for _eval_step, eval_batch in enumerate(eval_dataloader):
+                    if _eval_step >= 1:
+                        break
+                    y = eval_batch["input_ids"].to(device)
+                    with torch.no_grad():
+                        loss = model(y, return_loss=True)
+                        std = 0
+                        if torch.cuda.device_count() > 1:
+                            # std = loss.std().item()
+                            loss = loss.mean()
+
+                        print(f"val loss={loss.item():.4f} | {std=:.4f}")
+                        # wandb.log({"val_loss": loss.item()})
+        
+            if i != 0 and i % hp.generate_every == 0:
+                # if statement to  check if the device is cuda:0
+                if torch.cuda.current_device() == 0:
+
                     if torch.cuda.device_count() > 1:
-                        std = loss.std().item()
-                        loss = loss.mean()
+                        gen_model = model.module
+                    else:
+                        gen_model = model
 
-                    print(f"val loss={loss.item():.4f} | {std=:.4f}")
+                    
+                    gen_model.eval()
+                    ## There has to be a better way to do this?
+                    inp = [x for x in data_val.take(1)][0]["input_ids"]
+                    prime = tokenizer.decode(inp)
+                    print(f"\n\n {prime} \n\n {'-' * 80} \n")
+                    inp = torch.tensor(inp).to(device)
 
-        if step % hp.generate_every == 0:
-            model.eval()
-            ## There has to be a better way to do this?
-            inp = [x for x in data_val.take(1)][0]["input_ids"]
-            prime = tokenizer.decode(inp)
-            print(f"%s \n\n %s", (prime, "*" * 100))
 
-            sample = model.generate(inp, hp.generate_length)
-            output_str = tokenizer.decode(sample[0])
-            print(output_str)
+                    sample = gen_model.generate(inp[None, ...], hp.generate_length)
+                    output_str = tokenizer.decode(sample[0])
+                    print(output_str)
 
-        if step != 0 and step % hp.save_every == 0:
-            torch.save(model.state_dict(), f"{save_dir}/{model_name}_{step}.pt")
-            print(f"saved model to {model_name}_{step}.pt")
-
+            if i != 0 and i % hp.save_every == 0:
+                if torch.cuda.current_device() == 0:
+                    torch.save(model.state_dict(), f"{save_dir}/{model_name}_{i}.pt")
+                    print(f"saved model to {model_name}_{i}.pt")
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
