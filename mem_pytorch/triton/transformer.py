@@ -15,6 +15,10 @@ from mem_pytorch.triton.utils import exists, default
 
 # classes
 
+
+def l2norm(t):
+    return F.normalize(t, dim = -1)
+
 class PreNormResidual(nn.Module):
     def __init__(self, dim, fn, use_triton = False):
         super().__init__()
@@ -55,9 +59,10 @@ class Attention(nn.Module):
         h = self.heads
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
-        # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
 
         # q = q * self.scale
+        q, k = map(l2norm, (q, k))
 
 
         out = triton_flash_attention(q, k, v, self.scale)
