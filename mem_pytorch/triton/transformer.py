@@ -104,7 +104,7 @@ class FeedForward(nn.Module):
 
 # main class
 
-class Transformer(nn.Module):
+class TritonTransformer(nn.Module):
     def __init__(
         self,
         *,

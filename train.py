@@ -13,6 +13,7 @@ from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
 )
+from mem_pytorch.triton import TritonTransformer
 
 from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
@@ -23,7 +24,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Module:
-    model = Transformer(
+    model = TritonTransformer(
         num_tokens=50257,
         dim=dim,
         max_seq_len=seq_len,
