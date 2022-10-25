@@ -135,7 +135,7 @@ def train(
                         break
                     y = eval_batch["input_ids"].to(device)
                     with torch.no_grad():
-                        loss = model(y, return_loss=True)
+                        loss = model(y)
                         std = 0
                         if torch.cuda.device_count() > 1:
                             # std = loss.std().item()
