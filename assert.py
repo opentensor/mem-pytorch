@@ -1,11 +1,11 @@
 import torch
-from triton_transformer import Transformer
+from mem_pytorch.triton import TritonTransformer
 
 assert torch.cuda.is_available()
 
 # instantiate model and data
 
-model = Transformer(
+model = TritonTransformer(
     num_tokens = 256,
     max_seq_len = 1024,
     dim = 512,
