@@ -14,10 +14,10 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 
-from memory_efficient_attention_pytorch.autoregressive_wrapper import (
+from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
 )
-from memory_efficient_attention_pytorch.transformer import Transformer
+from mem_pytorch.transformer import Transformer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

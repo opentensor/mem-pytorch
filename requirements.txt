@@ -1,8 +1,9 @@
-git+https://github.com/opentensor/bittensor
+bittensor
 transformers
 datasets
 fsspec==2022.7.1
 zstandard
 hydra-core
 einops
-
+triton
+https://github.com/HazyResearch/flash-attention
