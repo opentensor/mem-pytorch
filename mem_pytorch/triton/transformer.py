@@ -84,27 +84,27 @@ class Attention(nn.Module):
         # q = q * self.scale
         # q, k = map(l2norm, (q, k))
 
-        print('q', q.shape)
-        print('k', k.shape)
-        print('v', v.shape)
-        out = triton_flash_attention(q, k, v, self.scale)
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        out = self.to_out(out)
-        return out
-
-        # sim = einsum('b i d, b j d -> b i j', q, k)
-
-        # if exists(mask):
-        #     mask_value = -torch.finfo(sim.dtype).max
-        #     sim = sim.masked_fill(mask, mask_value)
-
-        # attn = softmax(sim, causal = self.causal, use_triton = use_triton)
-        # attn = dropout_fn(attn, self.dropout, use_triton = use_triton)
-
-        # out = einsum('b i j, b j d -> b i d', attn, v)
-        # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
+        # print('q', q.shape)
+        # print('k', k.shape)
+        # print('v', v.shape)
+        # out = triton_flash_attention(q, k, v, self.scale)
+        # out = rearrange(out, 'b h n d -> b n (h d)')
         # out = self.to_out(out)
-        # return dropout_fn(out, self.dropout, use_triton = use_triton)
+        # return out
+
+        sim = einsum('b i d, b j d -> b i j', q, k)
+
+        if exists(mask):
+            mask_value = -torch.finfo(sim.dtype).max
+            sim = sim.masked_fill(mask, mask_value)
+
+        attn = softmax(sim, causal = self.causal, use_triton = use_triton)
+        attn = dropout_fn(attn, self.dropout, use_triton = use_triton)
+
+        out = einsum('b i j, b j d -> b i d', attn, v)
+        out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
+        out = self.to_out(out)
+        return dropout_fn(out, self.dropout, use_triton = use_triton)
 
 class FeedForward(nn.Module):
     def __init__(
