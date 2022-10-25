@@ -6,4 +6,3 @@ zstandard
 hydra-core
 einops
 triton
-git+https://github.com/HazyResearch/flash-attention
