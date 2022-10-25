@@ -1,6 +1,6 @@
 import os
 from typing import Sequence
-
+import bittensor as bt 
 import hydra
 from omegaconf import OmegaConf
 import numpy as np
@@ -54,8 +54,9 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
 
 def create_tokenizer(name: str = "gpt2"):
-    tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
-    tokenizer.pad_token = "[PAD]"
+    # tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
+    # tokenizer.pad_token = "[PAD]"
+    tokenizer = bt.tokenizer()
 
     return tokenizer
 
