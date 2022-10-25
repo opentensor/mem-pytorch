@@ -2,7 +2,7 @@ import torch
 from torch import autograd
 import torch.nn.functional as F
 
-from triton_transformer.utils import calc_num_warps, exists
+from mem_pytorch.triton.utils import calc_num_warps, exists
 
 import triton
 import triton.language as tl
