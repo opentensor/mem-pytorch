@@ -1,0 +1,8 @@
+name: narrow
+
+depth: 24
+heads: 24
+dim: 2048
+sequence_length: 256
+use_cuda_kernel: True
+fp16: True
