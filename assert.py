@@ -22,6 +22,7 @@ labels = torch.randint(0, 256, (1, 1024)).cuda()
 # forward and backward pass without triton
 
 loss = model(x, labels = labels)
+print(loss)
 loss.backward()
 
 loss = loss.clone()
