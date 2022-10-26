@@ -269,7 +269,8 @@ class _attention(torch.autograd.Function):
         return dq, dk, dv, None
 
 
-triton_flash_attention = _attention.apply
+t_flash_attention = _attention.apply
+triton_flash_attention = _attention
 
 
 @pytest.mark.parametrize('Z, H, N_CTX, D_HEAD', [(3, 2, 2048, 64)])
@@ -293,7 +294,7 @@ def test_op(Z, H, N_CTX, D_HEAD, dtype=torch.float16):
     ref_dk, k.grad = k.grad.clone(), None
     ref_dq, q.grad = q.grad.clone(), None
     # triton implementation
-    tri_out = triton_flash_attention(q, k, v, sm_scale)
+    tri_out = t_flash_attention(q, k, v, sm_scale)
     tri_out.backward(dout)
     tri_dv, v.grad = v.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
@@ -336,7 +337,7 @@ def bench_flash_attention(BATCH, H, N_CTX, D_HEAD, mode, provider, dtype=torch.f
         k = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
         v = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
         sm_scale = 1.3
-        fn = lambda: triton_flash_attention(q, k, v, sm_scale)
+        fn = lambda: t_flash_attention(q, k, v, sm_scale)
         if mode == 'bwd':
             o = fn()
             do = torch.randn_like(o)
@@ -357,4 +358,4 @@ def bench_flash_attention(BATCH, H, N_CTX, D_HEAD, mode, provider, dtype=torch.f
         return ms
 
 # only works on A100 at the moment
-bench_flash_attention.run(save_path='.', print_data=True)
+# bench_flash_attention.run(save_path='.', print_data=True)
