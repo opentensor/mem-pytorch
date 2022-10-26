@@ -73,7 +73,7 @@ class Attention(nn.Module):
         sm_scale = 1.3
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
+        # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
 
         # q = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
         # k = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
@@ -92,7 +92,8 @@ class Attention(nn.Module):
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
         pdb.set_trace()
-        out = triton_flash_attention.apply(q, k, v, self.scale)
+        out = lambda: triton_flash_attention(q, k, v, self.scale)
+
         out = self.out(out)
 
         return out
