@@ -93,7 +93,8 @@ class Attention(nn.Module):
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
         out = triton_flash_attention(query, k, v, self.scale)
-        out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
+        torch.squeeze(out)
+        # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         pdb.set_trace()
         out = self.to_out(out)
 
