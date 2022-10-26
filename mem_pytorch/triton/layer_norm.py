@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import triton
 import triton.language as tl
 
-from triton_transformer.utils import calc_num_warps, exists
+from mem_pytorch.triton.utils import calc_num_warps, exists
 
 # todo, make this autotuneable
 
@@ -32,7 +32,7 @@ def layernorm_kernel_forward_training(
     row_idx = tl.program_id(0)
     # BLOCK_SIZE = meta['BLOCK_SIZE']
     BLOCK_SIZE = meta.get('BLOCK_SIZE', None)
-    
+
     row_start_ptr = input_ptr + row_idx * input_row_stride
     gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
 
