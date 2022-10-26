@@ -245,7 +245,6 @@ def main(cfg: DictConfig):
         heads=cfg.model.heads,
         seq_len=cfg.model.sequence_length,
         fp16=cfg.model.fp16,
-        gradient_accumulate_every=cfg.regime.gradient_accumulate_every,
         use_cuda_kernel=cfg.model.use_cuda_kernel,
     )
 
@@ -273,6 +272,7 @@ def main(cfg: DictConfig):
         data_val=data_val,
         hp=cfg.regime,
         fp16=cfg.model.fp16,
+        gradient_accumulate_every=cfg.regime.gradient_accumulate_every,
         model_name=cfg.model.name,
         save_dir=cfg.save_dir,
     )
