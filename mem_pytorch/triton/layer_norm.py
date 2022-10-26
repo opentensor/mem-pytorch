@@ -27,11 +27,12 @@ def layernorm_kernel_forward_training(
     n_cols,
     stable,
     eps,
+    block_size,
     **kwargs
 ):
-    print("\n\n\nMETA\n\n\n", kwargs)
     row_idx = tl.program_id(0)
-    BLOCK_SIZE = kwargs['BLOCK_SIZE']
+    # BLOCK_SIZE = kwargs['BLOCK_SIZE']
+    BLOCK_SIZE = block_size
 
     row_start_ptr = input_ptr + row_idx * input_row_stride
     gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
@@ -79,11 +80,13 @@ def layernorm_kernel_forward_inference(
     n_cols,
     stable,
     eps,
+    block_size,
     **meta
 ):
     print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
-    BLOCK_SIZE = meta['BLOCK_SIZE']
+    # BLOCK_SIZE = meta['BLOCK_SIZE']
+    BLOCK_SIZE = block_size
 
     row_start_ptr = input_ptr + row_idx * input_row_stride
     gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
@@ -122,11 +125,13 @@ def layernorm_kernel_backward(
     mean_centered_row_stride,
     n_cols,
     eps,
+    block_size,
     **meta
 ):
     print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
-    BLOCK_SIZE = meta['BLOCK_SIZE']
+    # BLOCK_SIZE = meta['BLOCK_SIZE']
+    BLOCK_SIZE = block_size
 
     dy_row_start_ptr = dy_ptr + row_idx * dy_row_stride
     mean_centered_row_start_ptr = mean_centered_ptr + row_idx * mean_centered_row_stride
@@ -160,13 +165,18 @@ def layernorm_gamma_kernel_backward(
     dgamma_row_stride,
     n_rows,
     n_cols,
+    block_size,
+    row_block_size,
     **meta
 ):
     print("\n\n\nMETA\n\n\n", meta)
     col_idx = tl.program_id(0)
     row_idx = tl.program_id(1)
-    BLOCK_SIZE = meta['BLOCK_SIZE']
-    ROW_BLOCK_SIZE = meta['BLOCK_SIZE_ROW']
+    # BLOCK_SIZE = meta['BLOCK_SIZE']
+    # ROW_BLOCK_SIZE = meta['BLOCK_SIZE_ROW']
+
+    BLOCK_SIZE = block_size
+    ROW_BLOCK_SIZE = row_block_size
 
     col_offsets = tl.arange(0, BLOCK_SIZE)
     row_offsets = tl.arange(0, ROW_BLOCK_SIZE)
@@ -224,8 +234,8 @@ class _layernorm(autograd.Function):
                 n_cols,
                 stable,
                 eps,
-                num_warps = num_warps,
-                BLOCK_SIZE = BLOCK_SIZE,
+                # num_warps = num_warps,
+                BLOCK_SIZE,
             )
             ctx.save_for_backward(scaled_x, gamma, out)
         else:
@@ -239,8 +249,8 @@ class _layernorm(autograd.Function):
                 n_cols,
                 stable,
                 eps,
-                num_warps = num_warps,
-                BLOCK_SIZE = BLOCK_SIZE,
+                # num_warps = num_warps,
+                BLOCK_SIZE,
             )
 
         return out.view(*shape)
@@ -259,6 +269,7 @@ class _layernorm(autograd.Function):
         num_row_programs = triton.cdiv(n_rows, GAMMA_ROW_BLOCK_SIZE)
 
         dgamma = torch.empty((num_row_programs, n_cols), device = device)
+        num_warps = 4
 
         layernorm_gamma_kernel_backward[(num_col_programs, num_row_programs)](
             dgamma,
@@ -269,9 +280,9 @@ class _layernorm(autograd.Function):
             dgamma.stride(0),
             n_rows,
             n_cols,
-            num_warps = 4,
-            BLOCK_SIZE = GAMMA_BLOCK_SIZE,
-            BLOCK_SIZE_ROW = GAMMA_ROW_BLOCK_SIZE
+            GAMMA_BLOCK_SIZE,
+            GAMMA_ROW_BLOCK_SIZE,
+
         )
 
         dgamma = dgamma.sum(dim = 0)
@@ -291,8 +302,8 @@ class _layernorm(autograd.Function):
             scaled_x.stride(0),
             n_cols,
             ctx.eps,
-            num_warps = num_warps,
-            BLOCK_SIZE = BLOCK_SIZE,
+            # num_warps = num_warps,
+            BLOCK_SIZE,
         )
 
         dx = dx.view(*shape)
