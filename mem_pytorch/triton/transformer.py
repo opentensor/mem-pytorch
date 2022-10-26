@@ -65,7 +65,7 @@ class Attention(nn.Module):
         H = h
         D_HEAD = d_head
         # dtype = x.dtype
-        dtype = torch.float16
+        dtype = torch.float32
         
 
         qr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
@@ -95,10 +95,6 @@ class Attention(nn.Module):
         v = v.reshape(x.shape[0], h, x.shape[1], d_head)
 
         # cast to float16
-        query = query.to(dtype)
-        k = k.to(dtype)
-        v = v.to(dtype)
-        
 
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
