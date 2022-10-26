@@ -94,6 +94,12 @@ class Attention(nn.Module):
         k = k.reshape(x.shape[0], h, x.shape[1], d_head)
         v = v.reshape(x.shape[0], h, x.shape[1], d_head)
 
+        # cast to float16
+        query = query.to(dtype)
+        k = k.to(dtype)
+        v = v.to(dtype)
+        
+
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
         out = triton_flash_attention(query, k, v, self.scale)
