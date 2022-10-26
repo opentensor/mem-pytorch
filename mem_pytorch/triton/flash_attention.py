@@ -270,7 +270,7 @@ class _attention(torch.autograd.Function):
 
 
 attention = _attention.apply
-
+triton_flash_attention = _attention.apply
 
 @pytest.mark.parametrize('Z, H, N_CTX, D_HEAD', [(3, 2, 2048, 64)])
 def test_op(Z, H, N_CTX, D_HEAD, dtype=torch.float16):
