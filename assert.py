@@ -13,39 +13,42 @@ model = TritonTransformer(
     heads = 8,
     dim_head = 64,
     causal = True,
-    use_triton = False
+    use_triton = True
 ).cuda()
 
-x = torch.randint(0, 256, (1, 1024)).cuda()
-labels = torch.randint(0, 256, (1, 1024)).cuda()
 
-# forward and backward pass without triton
+for i in range(10):
 
-loss = model(x, labels = labels)
-print(loss)
-loss.backward()
+    x = torch.randint(0, 256, (1, 1024)).cuda()
+    labels = torch.randint(0, 256, (1, 1024)).cuda()
 
-loss = loss.clone()
-emb_grad = model.token_emb.weight.grad.clone()
-ln_weight_grad = model.norm.weight.grad.clone()
-ln_bias_grad = model.norm.bias.grad.clone()
+    # forward and backward pass without triton
 
-model.zero_grad()
+    loss = model(x, labels = labels)
+    print(loss)
+    loss.backward()
 
-# forward and backward pass with triton
+# loss = loss.clone()
+# emb_grad = model.token_emb.weight.grad.clone()
+# ln_weight_grad = model.norm.weight.grad.clone()
+# ln_bias_grad = model.norm.bias.grad.clone()
 
-triton_loss = model(x, labels = labels, use_triton = True)
-triton_loss.backward()
+# model.zero_grad()
 
-triton_emb_grad = model.token_emb.weight.grad.clone()
-triton_ln_weight_grad = model.norm.weight.grad.clone()
-triton_ln_bias_grad = model.norm.bias.grad.clone()
+# # forward and backward pass with triton
 
-# should be equal, for output and gradients on token embeddings
+# triton_loss = model(x, labels = labels, use_triton = True)
+# triton_loss.backward()
 
-assert torch.allclose(loss.cpu(), triton_loss.cpu(), atol=1e-6), 'output is the same'
-assert torch.allclose(emb_grad.cpu(), triton_emb_grad.cpu(), atol=2e-6), 'grad is the same'
-assert torch.allclose(ln_weight_grad.cpu(), triton_ln_weight_grad.cpu(), atol=2e-6), 'layernorm weight grad is the same'
-assert torch.allclose(ln_bias_grad.cpu(), triton_ln_bias_grad.cpu(), atol=2e-6), 'layernorm bias grad is the same'
+# triton_emb_grad = model.token_emb.weight.grad.clone()
+# triton_ln_weight_grad = model.norm.weight.grad.clone()
+# triton_ln_bias_grad = model.norm.bias.grad.clone()
 
-print('succeeded')
+# # should be equal, for output and gradients on token embeddings
+
+# assert torch.allclose(loss.cpu(), triton_loss.cpu(), atol=1e-6), 'output is the same'
+# assert torch.allclose(emb_grad.cpu(), triton_emb_grad.cpu(), atol=2e-6), 'grad is the same'
+# assert torch.allclose(ln_weight_grad.cpu(), triton_ln_weight_grad.cpu(), atol=2e-6), 'layernorm weight grad is the same'
+# assert torch.allclose(ln_bias_grad.cpu(), triton_ln_bias_grad.cpu(), atol=2e-6), 'layernorm bias grad is the same'
+
+# print('succeeded')
