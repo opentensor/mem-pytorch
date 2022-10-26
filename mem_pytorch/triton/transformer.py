@@ -93,7 +93,7 @@ class Attention(nn.Module):
 
         out = lambda: triton_flash_attention(q, k, v, self.scale)
         pdb.set_trace()
-        out = self.out(out)
+        out = self.to_out(out)
 
         return out
 
