@@ -29,6 +29,7 @@ def layernorm_kernel_forward_training(
     eps,
     **meta
 ):
+    print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
     BLOCK_SIZE = meta['BLOCK_SIZE']
 
@@ -80,6 +81,7 @@ def layernorm_kernel_forward_inference(
     eps,
     **meta
 ):
+    print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
     BLOCK_SIZE = meta['BLOCK_SIZE']
 
@@ -122,6 +124,7 @@ def layernorm_kernel_backward(
     eps,
     **meta
 ):
+    print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
     BLOCK_SIZE = meta['BLOCK_SIZE']
 
