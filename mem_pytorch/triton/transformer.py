@@ -200,6 +200,7 @@ class TritonTransformer(nn.Module):
 
         x = self.token_emb(x)
         pos_emb = self.pos_emb(torch.arange(n, device = device))
+        pdb.set_trace()
         x = x + rearrange(pos_emb, 'n d -> () n d')
 
         # generate mask, depending on whether autoregressive or not
