@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import triton
 import triton.language as tl
 
-from mem_pytorch.triton.utils import calc_num_warps, exists
+from triton_transformer.utils import calc_num_warps, exists
 
 # todo, make this autotuneable
 
@@ -30,8 +30,7 @@ def layernorm_kernel_forward_training(
     **meta
 ):
     row_idx = tl.program_id(0)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    BLOCK_SIZE = meta.get('BLOCK_SIZE', None)
+    BLOCK_SIZE = meta['BLOCK_SIZE']
 
     row_start_ptr = input_ptr + row_idx * input_row_stride
     gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
@@ -82,8 +81,7 @@ def layernorm_kernel_forward_inference(
     **meta
 ):
     row_idx = tl.program_id(0)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    BLOCK_SIZE = meta.get('BLOCK_SIZE', None)
+    BLOCK_SIZE = meta['BLOCK_SIZE']
 
     row_start_ptr = input_ptr + row_idx * input_row_stride
     gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
@@ -125,8 +123,7 @@ def layernorm_kernel_backward(
     **meta
 ):
     row_idx = tl.program_id(0)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    BLOCK_SIZE = meta.get('BLOCK_SIZE', None)
+    BLOCK_SIZE = meta['BLOCK_SIZE']
 
     dy_row_start_ptr = dy_ptr + row_idx * dy_row_stride
     mean_centered_row_start_ptr = mean_centered_ptr + row_idx * mean_centered_row_stride
@@ -164,10 +161,8 @@ def layernorm_gamma_kernel_backward(
 ):
     col_idx = tl.program_id(0)
     row_idx = tl.program_id(1)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    # ROW_BLOCK_SIZE = meta['BLOCK_SIZE_ROW']
-    BLOCK_SIZE = meta.get('BLOCK_SIZE', None)
-    ROW_BLOCK_SIZE = meta.get('BLOCK_SIZE_ROW', None)
+    BLOCK_SIZE = meta['BLOCK_SIZE']
+    ROW_BLOCK_SIZE = meta['BLOCK_SIZE_ROW']
 
     col_offsets = tl.arange(0, BLOCK_SIZE)
     row_offsets = tl.arange(0, ROW_BLOCK_SIZE)
