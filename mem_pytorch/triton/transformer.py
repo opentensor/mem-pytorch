@@ -96,7 +96,7 @@ class Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
   
         # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
-        # pdb.set_trace()
+        pdb.set_trace()
 
         # cast to float32
         out = out.to(out_dtype)
