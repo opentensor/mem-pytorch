@@ -86,6 +86,10 @@ class Attention(nn.Module):
         # DIM_HEAD is x.shape[2]
 
         # reshape q, k, v to (BATCH, H, N_CTX, D_HEAD)
+        print('shapes:')
+        print('q shape before reshape:', q.shape)
+        print('k shape before reshape:', k.shape)
+        print('v shape before reshape:', v.shape)
         query = q.reshape(x.shape[0], h, x.shape[1], d_head)
         k = k.reshape(x.shape[0], h, x.shape[1], d_head)
         v = v.reshape(x.shape[0], h, x.shape[1], d_head)
