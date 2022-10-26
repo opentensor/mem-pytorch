@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 import triton
 import triton.language as tl
@@ -232,5 +233,15 @@ class LayerNorm(torch.autograd.Function):
         return (da, None, dweight, dbias, None)
 
 
-def layernorm(a, normalized_shape, weight, bias, eps):
-    return LayerNorm.apply(a, normalized_shape, weight, bias, eps)
+# def layernorm(a, normalized_shape, weight, bias, eps):
+#     return LayerNorm.apply(a, normalized_shape, weight, bias, eps)
+
+def layernorm(x, gamma, eps = 1e-5, use_triton = False, stable = False):
+    if use_triton:
+        # out = LayerNorm.apply(x, gamma, eps, stable)
+        out = LayerNorm.apply(x, gamma.shape[-1], gamma, torch.zeros_like(gamma), eps)
+    else:
+        if stable:
+            x = x / torch.amax(x, dim = -1, keepdim = True)
+        out = F.layer_norm(x, (x.shape[-1],), gamma, torch.zeros_like(gamma), eps = eps)
+    return out
