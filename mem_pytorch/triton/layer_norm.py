@@ -27,11 +27,11 @@ def layernorm_kernel_forward_training(
     n_cols,
     stable,
     eps,
-    **meta
+    **kwargs
 ):
-    print("\n\n\nMETA\n\n\n", meta)
+    print("\n\n\nMETA\n\n\n", kwargs)
     row_idx = tl.program_id(0)
-    BLOCK_SIZE = meta['BLOCK_SIZE']
+    BLOCK_SIZE = kwargs['BLOCK_SIZE']
 
     row_start_ptr = input_ptr + row_idx * input_row_stride
     gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
