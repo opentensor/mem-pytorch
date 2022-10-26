@@ -1,15 +1,15 @@
 from setuptools import setup, find_packages
 
 setup(
-  name = 'memory-efficient-attention-pytorch',
+  name = 'mem-pytorch',
   packages = find_packages(exclude=[]),
-  version = '0.0.26',
+  version = '0.1.0',
   license='MIT',
   description = 'Memory Efficient Attention - Pytorch',
   long_description_content_type = 'text/markdown',
-  author = 'Phil Wang',
-  author_email = 'lucidrains@gmail.com',
-  url = 'https://github.com/lucidrains/memory-efficient-attention-pytorch',
+  author = 'Phil Wang / jouee / carro',
+  author_email = 'robert@opentensor.ai',
+  url = 'https://github.com/opentensor/mem-pytorch',
   keywords = [
     'artificial intelligence',
     'deep learning',
