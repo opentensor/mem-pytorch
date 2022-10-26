@@ -1,4 +1,5 @@
 from functools import partial
+import pdb
 import torch
 from torch import nn, einsum
 import torch.nn.functional as F
@@ -59,7 +60,17 @@ class Attention(nn.Module):
         use_triton = default(use_triton, self.use_triton)
         h = self.heads
         d_head = self.dim_head
+        BATCH = x.shape[0]
+        N_CTX = x.shape[1]
+        H = h
+        D_HEAD = d_head
+        dtype = x.dtype
+        
 
+        qr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
+        kr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
+        vr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
+        sm_scale = 1.3
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
@@ -80,39 +91,12 @@ class Attention(nn.Module):
 
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
-
+        pdb.set_trace()
         out = triton_flash_attention(q, k, v, self.scale)
         out = self.out(out)
 
         return out
 
-
-        
-
-        # q = q.contiguous()
-        # k = k.contiguous()
-        # v = v.contiguous()
-
-        # q = q.view(BATCH, H, N_CTX, D_HEAD)
-        # k = k.view(BATCH, H, N_CTX, D_HEAD)
-        # v = v.view(BATCH, H, N_CTX, D_HEAD)
-
-        # q = q.permute(0, 2, 1, 3)
-        # k = k.permute(0, 2, 1, 3)
-        # v = v.permute(0, 2, 1, 3)
-
-
-
-        # q = q * self.scale
-        # q, k = map(l2norm, (q, k))
-
-        # print('q', q.shape)
-        # print('k', k.shape)
-        # print('v', v.shape)
-        # out = triton_flash_attention(q, k, v, self.scale)
-        # out = rearrange(out, 'b h n d -> b n (h d)')
-        # out = self.to_out(out)
-        # return out
 
         # sim = einsum('b i d, b j d -> b i j', q, k)
 
