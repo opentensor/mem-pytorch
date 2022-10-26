@@ -46,6 +46,7 @@ class Attention(nn.Module):
         super().__init__()
         self.use_triton = use_triton
         self.heads = heads
+        self.dim_head = dim_head
         self.scale = dim_head ** -0.5
         self.causal = causal
         inner_dim = dim_head * heads
@@ -57,6 +58,8 @@ class Attention(nn.Module):
     def forward(self, x, mask = None, use_triton = None):
         use_triton = default(use_triton, self.use_triton)
         h = self.heads
+        d_head = self.dim_head
+
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
@@ -65,7 +68,26 @@ class Attention(nn.Module):
         # k = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
         # v = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
 
+        # BATCH = x.shape[0]
+        # H is self.heads
+        # SEQ_LEN is x.shape[1]
+        # DIM_HEAD is x.shape[2]
+
         # reshape q, k, v to (BATCH, H, N_CTX, D_HEAD)
+        q = q.reshape(x.shape[0], h, x.shape[1], d_head)
+        k = k.reshape(x.shape[0], h, x.shape[1], d_head)
+        v = v.reshape(x.shape[0], h, x.shape[1], d_head)
+
+        # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
+
+
+        out = triton_flash_attention(q, k, v, self.scale)
+        out = self.out(out)
+
+        return out
+
+
+        
 
         # q = q.contiguous()
         # k = k.contiguous()
@@ -92,19 +114,19 @@ class Attention(nn.Module):
         # out = self.to_out(out)
         # return out
 
-        sim = einsum('b i d, b j d -> b i j', q, k)
+        # sim = einsum('b i d, b j d -> b i j', q, k)
 
-        if exists(mask):
-            mask_value = -torch.finfo(sim.dtype).max
-            sim = sim.masked_fill(mask, mask_value)
+        # if exists(mask):
+        #     mask_value = -torch.finfo(sim.dtype).max
+        #     sim = sim.masked_fill(mask, mask_value)
 
-        attn = softmax(sim, causal = self.causal, use_triton = use_triton)
-        attn = dropout_fn(attn, self.dropout, use_triton = use_triton)
+        # attn = softmax(sim, causal = self.causal, use_triton = use_triton)
+        # attn = dropout_fn(attn, self.dropout, use_triton = use_triton)
 
-        out = einsum('b i j, b j d -> b i d', attn, v)
-        out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
-        out = self.to_out(out)
-        return dropout_fn(out, self.dropout, use_triton = use_triton)
+        # out = einsum('b i j, b j d -> b i d', attn, v)
+        # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
+        # out = self.to_out(out)
+        # return dropout_fn(out, self.dropout, use_triton = use_triton)
 
 class FeedForward(nn.Module):
     def __init__(
