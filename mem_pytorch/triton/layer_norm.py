@@ -157,12 +157,14 @@ def layernorm_gamma_kernel_backward(
     dgamma_row_stride,
     n_rows,
     n_cols,
+    BLOCK_SIZE,
     **meta
 ):
     col_idx = tl.program_id(0)
     row_idx = tl.program_id(1)
-    BLOCK_SIZE = meta['BLOCK_SIZE']
+    # BLOCK_SIZE = meta['BLOCK_SIZE']
     ROW_BLOCK_SIZE = meta['BLOCK_SIZE_ROW']
+    
 
     col_offsets = tl.arange(0, BLOCK_SIZE)
     row_offsets = tl.arange(0, ROW_BLOCK_SIZE)
