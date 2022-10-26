@@ -32,7 +32,7 @@ def ext_modules():
   return [
     CUDAExtension(
       "flash_cosine_sim_attention_cuda",
-      sources = ["mem_pytorch/flash_cosine_sim_attention_cuda.cu"]
+      sources = ["mem_pytorch/cosine/flash_cosine_sim_attention_cuda.cu"]
     )
   ]
 
