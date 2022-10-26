@@ -232,5 +232,5 @@ class LayerNorm(torch.autograd.Function):
         return (da, None, dweight, dbias, None)
 
 
-def layer_norm(a, normalized_shape, weight, bias, eps):
+def layernorm(a, normalized_shape, weight, bias, eps):
     return LayerNorm.apply(a, normalized_shape, weight, bias, eps)
