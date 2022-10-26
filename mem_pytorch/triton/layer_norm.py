@@ -159,6 +159,7 @@ def layernorm_gamma_kernel_backward(
     n_cols,
     **meta
 ):
+    print("\n\n\nMETA\n\n\n", meta)
     col_idx = tl.program_id(0)
     row_idx = tl.program_id(1)
     BLOCK_SIZE = meta['BLOCK_SIZE']
