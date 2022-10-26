@@ -113,7 +113,7 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
+        for i, batch in enumerate(tqdm(train_dataloader, total=100_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
             loss = model(x)
             std = 0
@@ -123,7 +123,7 @@ def train(
 
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.step()
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
