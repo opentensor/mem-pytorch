@@ -1,319 +1,236 @@
 import torch
-from torch import autograd
-import torch.nn.functional as F
 
 import triton
 import triton.language as tl
 
-from mem_pytorch.triton.utils import calc_num_warps, exists
+try:
+    # This is https://github.com/NVIDIA/apex, NOT the apex on PyPi, so it
+    # should not be added to extras_require in setup.py.
+    import apex
+    HAS_APEX = True
+except ModuleNotFoundError:
+    HAS_APEX = False
 
-# todo, make this autotuneable
-
-GAMMA_BLOCK_SIZE = 64
-GAMMA_ROW_BLOCK_SIZE = 64
-
-@triton.jit
-def layernorm_kernel_forward_training(
-    output_ptr,
-    mean_centered_ptr,
-    normed_ptr,
-    input_ptr,
-    gamma_ptr,
-    input_row_stride,
-    gamma_row_stride,
-    output_row_stride,
-    mean_centered_row_stride,
-    normed_row_stride,
-    n_cols,
-    stable,
-    eps,
-    block_size,
-    # **kwargs
-):
-    row_idx = tl.program_id(0)
-    # BLOCK_SIZE = kwargs['BLOCK_SIZE']
-    BLOCK_SIZE = block_size
-
-    row_start_ptr = input_ptr + row_idx * input_row_stride
-    gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
-
-    col_offsets = tl.arange(0, BLOCK_SIZE)
-    input_ptrs = row_start_ptr + col_offsets
-    gamma_ptrs = gamma_row_start_ptr + col_offsets
-
-    mask = col_offsets < n_cols
-    row = tl.load(input_ptrs, mask=mask, other=0.)
-    gammas = tl.load(gamma_ptrs, mask=mask, other=0.)
-
-    if stable:
-        row_max = tl.max(tl.where(mask, row, float('-inf')), axis = 0)
-        row /= row_max
-
-    row_mean = tl.sum(row, axis = 0) / n_cols
-    row_mean_centered = tl.where(mask, row - row_mean, 0.)
-    row_var = tl.sum(row_mean_centered * row_mean_centered, axis = 0) / n_cols
-    inv_var = 1. / tl.sqrt(row_var + eps)
-    normed = row_mean_centered * inv_var
-
-    output = normed * gammas
-
-    output_row_start_ptr = output_ptr + row_idx * output_row_stride
-    output_ptrs = output_row_start_ptr + col_offsets
-    tl.store(output_ptrs, output, mask=mask)
-
-    mean_centered_row_start_ptr = mean_centered_ptr + row_idx * mean_centered_row_stride
-    mean_centered_ptrs = mean_centered_row_start_ptr + col_offsets
-    tl.store(mean_centered_ptrs, row_mean_centered, mask=mask)
-
-    normed_row_start_ptr = normed_ptr + row_idx * normed_row_stride
-    normed_ptrs = normed_row_start_ptr + col_offsets
-    tl.store(normed_ptrs, normed, mask=mask)
 
 @triton.jit
-def layernorm_kernel_forward_inference(
-    output_ptr,
-    input_ptr,
-    gamma_ptr,
-    input_row_stride,
-    gamma_row_stride,
-    output_row_stride,
-    n_cols,
-    stable,
-    eps,
-    block_size,
-    # **meta
+def _layer_norm_fwd_fused(
+    Out,
+    A,
+    Weight,
+    Bias,
+    Mean, Rstd,
+    stride, N, eps,
+    BLOCK_SIZE: tl.constexpr,
 ):
-    # print("\n\n\nMETA\n\n\n", meta)
-    row_idx = tl.program_id(0)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    BLOCK_SIZE = block_size
+    # position of elements processed by this program
+    row = tl.program_id(0)
+    Out += row * stride
+    A += row * stride
+    # compute mean
+    mean = 0
+    _mean = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
+    for off in range(0, N, BLOCK_SIZE):
+        cols = off + tl.arange(0, BLOCK_SIZE)
+        a = tl.load(A + cols, mask=cols < N, other=0., eviction_policy="evict_last").to(tl.float32)
+        _mean += a
+    mean = tl.sum(_mean, axis=0) / N
+    # compute variance
+    _var = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
+    for off in range(0, N, BLOCK_SIZE):
+        cols = off + tl.arange(0, BLOCK_SIZE)
+        a = tl.load(A + cols, mask=cols < N, other=0., eviction_policy="evict_last").to(tl.float32)
+        a = tl.where(cols < N, a - mean, 0.)
+        _var += a * a
+    var = tl.sum(_var, axis=0) / N
+    rstd = 1 / tl.sqrt(var + eps)
+    # write-back mean/rstd
+    tl.store(Mean + row, mean)
+    tl.store(Rstd + row, rstd)
+    # multiply by weight and add bias
+    for off in range(0, N, BLOCK_SIZE):
+        cols = off + tl.arange(0, BLOCK_SIZE)
+        mask = cols < N
+        weight = tl.load(Weight + cols, mask=mask)
+        bias = tl.load(Bias + cols, mask=mask)
+        a = tl.load(A + cols, mask=mask, other=0., eviction_policy="evict_first").to(tl.float32)
+        a_hat = (a - mean) * rstd
+        out = a_hat * weight + bias
+        # # write-back
+        tl.store(Out + cols, out, mask=mask)
 
-    row_start_ptr = input_ptr + row_idx * input_row_stride
-    gamma_row_start_ptr = gamma_ptr + row_idx * gamma_row_stride
+# Backward pass (DA + partial DW + partial DB)
 
-    col_offsets = tl.arange(0, BLOCK_SIZE)
-    input_ptrs = row_start_ptr + col_offsets
-    gamma_ptrs = gamma_row_start_ptr + col_offsets
-
-    mask = col_offsets < n_cols
-    row = tl.load(input_ptrs, mask=mask, other=0.)
-    gammas = tl.load(gamma_ptrs, mask=mask, other=0.)
-
-    if stable:
-        row_max = tl.max(tl.where(mask, row, float('-inf')), axis = 0)
-        row /= row_max
-
-    row_mean = tl.sum(row, axis = 0) / n_cols
-    row_mean_centered = tl.where(mask, row - row_mean, 0.)
-    row_var = tl.sum(row_mean_centered * row_mean_centered, axis = 0) / n_cols
-    inv_var = 1. / tl.sqrt(row_var + eps)
-    normed = row_mean_centered * inv_var
-
-    output = normed * gammas
-
-    output_row_start_ptr = output_ptr + row_idx * output_row_stride
-    output_ptrs = output_row_start_ptr + col_offsets
-    tl.store(output_ptrs, output, mask=mask)
 
 @triton.jit
-def layernorm_kernel_backward(
-    output_ptr,
-    dy_ptr,
-    mean_centered_ptr,
-    output_row_stride,
-    dy_row_stride,
-    mean_centered_row_stride,
-    n_cols,
-    eps,
-    block_size,
-    # **meta
+def _layer_norm_bwd_dx_fused(
+    _DA,
+    _DOut,
+    _A,
+    Weight,
+    Mean, Rstd,
+    stride, NumRows, NumCols, eps,
+    BLOCK_SIZE_N: tl.constexpr,
 ):
-    # print("\n\n\nMETA\n\n\n", meta)
-    row_idx = tl.program_id(0)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    BLOCK_SIZE = block_size
+    # position of elements processed by this program
+    pid = tl.program_id(0)
+    row = pid
+    A = _A + row * stride
+    DOut = _DOut + row * stride
+    DA = _DA + row * stride
+    mean = tl.load(Mean + row)
+    rstd = tl.load(Rstd + row)
+    # load data to SRAM
+    _mean1 = tl.zeros([BLOCK_SIZE_N], dtype=tl.float32)
+    _mean2 = tl.zeros([BLOCK_SIZE_N], dtype=tl.float32)
+    for off in range(0, NumCols, BLOCK_SIZE_N):
+        cols = off + tl.arange(0, BLOCK_SIZE_N)
+        mask = cols < NumCols
+        a = tl.load(A + cols, mask=mask, other=0).to(tl.float32)
+        dout = tl.load(DOut + cols, mask=mask, other=0).to(tl.float32)
+        weight = tl.load(Weight + cols, mask=mask, other=0).to(tl.float32)
+        a_hat = (a - mean) * rstd
+        wdout = weight * dout
+        _mean1 += a_hat * wdout
+        _mean2 += wdout
+    mean1 = tl.sum(_mean1, axis=0) / NumCols
+    mean2 = 0.
+    mean2 = tl.sum(_mean2, axis=0) / NumCols
+    for off in range(0, NumCols, BLOCK_SIZE_N):
+        cols = off + tl.arange(0, BLOCK_SIZE_N)
+        mask = cols < NumCols
+        a = tl.load(A + cols, mask=mask, other=0).to(tl.float32)
+        dout = tl.load(DOut + cols, mask=mask, other=0).to(tl.float32)
+        weight = tl.load(Weight + cols, mask=mask, other=0).to(tl.float32)
+        a_hat = (a - mean) * rstd
+        wdout = weight * dout
+        da = (wdout - (a_hat * mean1 + mean2)) * rstd
+        # write-back dx
+        tl.store(DA + cols, da, mask=mask)
 
-    dy_row_start_ptr = dy_ptr + row_idx * dy_row_stride
-    mean_centered_row_start_ptr = mean_centered_ptr + row_idx * mean_centered_row_stride
 
-    col_offsets = tl.arange(0, BLOCK_SIZE)
-    dy_ptrs = dy_row_start_ptr + col_offsets
-    mean_centered_ptrs = mean_centered_row_start_ptr + col_offsets
-
-    mask = col_offsets < n_cols
-
-    dy = tl.load(dy_ptrs, mask=mask, other=0.)
-    mean_centered = tl.load(mean_centered_ptrs, mask=mask, other=0.)
-
-    row_var = tl.sum(mean_centered * mean_centered, axis = 0) / n_cols
-    inv_var = 1. / tl.sqrt(row_var + eps)
-    normed = mean_centered * inv_var
-
-    output = 1. / n_cols * inv_var * (n_cols * dy - tl.sum(dy, axis = 0) - normed * tl.sum(dy * normed, axis = 0))
-
-    output_row_start_ptr = output_ptr + row_idx * output_row_stride
-    output_ptrs = output_row_start_ptr + col_offsets
-    tl.store(output_ptrs, output, mask=mask)
-
+# Backward pass (total DW + total DB)
 @triton.jit
-def layernorm_gamma_kernel_backward(
-    dgamma_ptr,
-    norm_ptr,
-    dy_ptr,
-    norm_stride,
-    dy_stride,
-    dgamma_row_stride,
-    n_rows,
-    n_cols,
-    block_size,
-    row_block_size,
-    # **meta
+def _layer_norm_bwd_dwdb(
+    A, DOut,
+    Mean, Var,
+    DW,
+    DB,
+    M, N,
+    BLOCK_SIZE_M: tl.constexpr,
+    BLOCK_SIZE_N: tl.constexpr,
 ):
-    print("\n\n\nMETA\n\n\n", meta)
-    col_idx = tl.program_id(0)
-    row_idx = tl.program_id(1)
-    # BLOCK_SIZE = meta['BLOCK_SIZE']
-    # ROW_BLOCK_SIZE = meta['BLOCK_SIZE_ROW']
+    pid = tl.program_id(0)
+    cols = pid * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    dw = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+    db = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+    UNROLL: tl.constexpr = 4
+    for i in range(0, M, BLOCK_SIZE_M * UNROLL):
+        for j in range(UNROLL):
+            rows = i + j * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+            mask = (rows[:, None] < M) & (cols[None, :] < N)
+            offs = rows[:, None] * N + cols[None, :]
+            a = tl.load(A + offs, mask=mask, other=0.).to(tl.float32)
+            dout = tl.load(DOut + offs, mask=mask, other=0.).to(tl.float32)
+            mean = tl.load(Mean + rows, mask=rows < M, other=0.)
+            rstd = tl.load(Var + rows, mask=rows < M, other=0.)
+            a_hat = (a - mean[:, None]) * rstd[:, None]
+            dw += dout * a_hat
+            db += dout
+    sum_dw = tl.sum(dw, axis=0)
+    sum_db = tl.sum(db, axis=0)
+    tl.store(DW + cols, sum_dw, mask=cols < N)
+    tl.store(DB + cols, sum_db, mask=cols < N)
 
-    BLOCK_SIZE = block_size
-    ROW_BLOCK_SIZE = row_block_size
 
-    col_offsets = tl.arange(0, BLOCK_SIZE)
-    row_offsets = tl.arange(0, ROW_BLOCK_SIZE)
-
-    col_range = col_idx * BLOCK_SIZE + col_offsets
-    row_range = row_idx * ROW_BLOCK_SIZE + row_offsets
-
-    col_mask = col_range < n_cols
-    mask = (row_range < n_rows)[:, None] & col_mask[None, :]
-
-    dy_ptr += row_range[:, None] * dy_stride + col_range[None, :]
-    norm_ptr += row_range[:, None] * norm_stride + col_range[None, :]
-
-    dy = tl.load(dy_ptr, mask = mask, other = 0.)
-    norm = tl.load(norm_ptr, mask = mask, other = 0.)
-
-    dgamma = tl.sum(dy * norm, axis = 0)
-
-    dgamma_ptr += row_idx * dgamma_row_stride + col_range
-
-    tl.store(dgamma_ptr, dgamma, mask = col_mask)
-
-class _layernorm(autograd.Function):
-    @classmethod
-    def forward(cls, ctx, x, gamma, eps, stable):
-        shape = x.shape
-        dim = shape[-1]
-        x = x.view(-1, dim)
-        n_rows, n_cols = x.shape
-
-        expanded_gamma = gamma[None, :].expand(n_rows, -1)
-
-        BLOCK_SIZE = triton.next_power_of_2(n_cols)
-        num_warps = calc_num_warps(BLOCK_SIZE)
-
-        out = torch.empty_like(x)
-
+class LayerNorm(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, a, normalized_shape, weight, bias, eps):
+        # allocate output
+        out = torch.empty_like(a)
+        # reshape input data into 2D tensor
+        a_arg = a.reshape(-1, a.shape[-1])
+        M, N = a_arg.shape
+        mean = torch.empty((M,), dtype=torch.float32, device="cuda")
+        rstd = torch.empty((M,), dtype=torch.float32, device="cuda")
+        # Less than 64KB per feature: enqueue fused kernel
+        MAX_FUSED_SIZE = 65536 // a.element_size()
+        BLOCK_SIZE = min(MAX_FUSED_SIZE, triton.next_power_of_2(N))
+        BLOCK_SIZE = max(BLOCK_SIZE, 128)
+        BLOCK_SIZE = min(BLOCK_SIZE, 4096)
+        # heuristics for number of warps
+        num_warps = min(max(BLOCK_SIZE // 256, 1), 8)
+        _layer_norm_fwd_fused[(M,)](
+            out,
+            a_arg,
+            weight,
+            bias,
+            mean, rstd,
+            a_arg.stride(0), N, eps,
+            BLOCK_SIZE=BLOCK_SIZE,
+            num_warps=num_warps,
+        )
+        ctx.save_for_backward(
+            a, weight, bias, mean, rstd,
+        )
+        ctx.BLOCK_SIZE = BLOCK_SIZE
+        ctx.num_warps = num_warps
         ctx.eps = eps
-
-        if x.requires_grad:
-            scaled_x = torch.empty_like(x)
-            normed = torch.empty_like(x)
-
-            layernorm_kernel_forward_training[(n_rows,)](
-                out,
-                scaled_x,
-                normed,
-                x,
-                expanded_gamma,
-                x.stride(0),
-                expanded_gamma.stride(0),
-                out.stride(0),
-                scaled_x.stride(0),
-                normed.stride(0),
-                n_cols,
-                stable,
-                eps,
-                # num_warps = num_warps,
-                BLOCK_SIZE,
-            )
-            ctx.save_for_backward(scaled_x, gamma, out)
+        if hasattr(bias, "config"):
+            assert bias.config.grad_scale_name == weight.config.grad_scale_name
+            grad_scale_name = bias.config.grad_scale_name
         else:
-            layernorm_kernel_forward_inference[(n_rows,)](
-                out,
-                x,
-                expanded_gamma,
-                x.stride(0),
-                expanded_gamma.stride(0),
-                out.stride(0),
-                n_cols,
-                stable,
-                eps,
-                # num_warps = num_warps,
-                BLOCK_SIZE,
-            )
+            grad_scale_name = None
+        ctx.grad_scale_gain_bias_name = grad_scale_name
+        return out
 
-        return out.view(*shape)
-
-    @classmethod
-    def backward(cls, ctx, dy):
-        shape, device = dy.shape, dy.device
-        dim = shape[-1]
-        dy = dy.view(-1, dim)
-
-        scaled_x, gamma, normed = ctx.saved_tensors
-
-        n_rows, n_cols = dy.shape
-
-        num_col_programs = triton.cdiv(n_cols, GAMMA_BLOCK_SIZE)
-        num_row_programs = triton.cdiv(n_rows, GAMMA_ROW_BLOCK_SIZE)
-
-        dgamma = torch.empty((num_row_programs, n_cols), device = device)
-        num_warps = 4
-
-        layernorm_gamma_kernel_backward[(num_col_programs, num_row_programs)](
-            dgamma,
-            normed,
-            dy,
-            normed.stride(0),
-            dy.stride(0),
-            dgamma.stride(0),
-            n_rows,
-            n_cols,
-            GAMMA_BLOCK_SIZE,
-            GAMMA_ROW_BLOCK_SIZE,
-
-        )
-
-        dgamma = dgamma.sum(dim = 0)
-
-        dxhat = dy * gamma
-        dx = torch.empty_like(dy)
-
-        BLOCK_SIZE = triton.next_power_of_2(n_cols)
-        num_warps = calc_num_warps(BLOCK_SIZE)
-
-        layernorm_kernel_backward[(n_rows,)](
-            dx,
-            dxhat,
-            scaled_x,
-            dx.stride(0),
-            dxhat.stride(0),
-            scaled_x.stride(0),
-            n_cols,
+    @staticmethod
+    def backward(ctx, dout):
+        assert dout.is_contiguous()
+        a, weight, bias, mean, var = ctx.saved_tensors
+        # heuristics for amount of parallel reduction stream for DG/DB
+        N = weight.shape[0]
+        # allocate output
+        da = torch.empty_like(dout)
+        # enqueue kernel using forward pass heuristics
+        # also compute partial sums for DW and DB
+        x_arg = a.reshape(-1, a.shape[-1])
+        M, N = x_arg.shape
+        dweight = torch.empty((weight.shape[0],), dtype=weight.dtype, device=weight.device)
+        dbias = torch.empty((weight.shape[0],), dtype=weight.dtype, device=weight.device)
+        _layer_norm_bwd_dx_fused[(M,)](
+            da,
+            dout,
+            a,
+            weight,
+            mean, var,
+            x_arg.stride(0), M, N,
             ctx.eps,
-            # num_warps = num_warps,
-            BLOCK_SIZE,
+            BLOCK_SIZE_N=ctx.BLOCK_SIZE,
+            num_warps=ctx.num_warps,
         )
+        if N > 10240:
+            BLOCK_SIZE_N = 128
+            BLOCK_SIZE_M = 32
+            num_warps = 4
+        else:
+            # maximize occupancy for small N
+            BLOCK_SIZE_N = 16
+            BLOCK_SIZE_M = 16
+            num_warps = 8
+        grid = lambda meta: [triton.cdiv(N, meta["BLOCK_SIZE_N"])]
+        _layer_norm_bwd_dwdb[grid](
+            a, dout,
+            mean, var,
+            dweight,
+            dbias,
+            M,
+            N,
+            BLOCK_SIZE_M=BLOCK_SIZE_M,
+            BLOCK_SIZE_N=BLOCK_SIZE_N,
+            num_warps=num_warps
+        )
+        return (da, None, dweight, dbias, None)
 
-        dx = dx.view(*shape)
-        return dx, dgamma, None, None
 
-def layernorm(x, gamma, eps = 1e-5, use_triton = False, stable = False):
-    if use_triton:
-        out = _layernorm.apply(x, gamma, eps, stable)
-    else:
-        if stable:
-            x = x / torch.amax(x, dim = -1, keepdim = True)
-        out = F.layer_norm(x, (x.shape[-1],), gamma, torch.zeros_like(gamma), eps = eps)
-    return out
+def layer_norm(a, normalized_shape, weight, bias, eps):
+    return LayerNorm.apply(a, normalized_shape, weight, bias, eps)
