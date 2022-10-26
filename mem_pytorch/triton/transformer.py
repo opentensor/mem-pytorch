@@ -59,7 +59,7 @@ class Attention(nn.Module):
     def forward(self, x, mask = None, use_triton = None):
         use_triton = default(use_triton, self.use_triton)
         h = self.heads
-        d_head = self.dim_head
+        d_head = x.shape[-1]
         BATCH = x.shape[0]
         N_CTX = x.shape[1]
         H = h
@@ -97,7 +97,7 @@ class Attention(nn.Module):
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
         out = triton_flash_attention(query, k, v, self.scale)
-        torch.squeeze(out)
+  
         # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         pdb.set_trace()
         out = self.to_out(out)
@@ -200,7 +200,6 @@ class TritonTransformer(nn.Module):
 
         x = self.token_emb(x)
         pos_emb = self.pos_emb(torch.arange(n, device = device))
-        pdb.set_trace()
         x = x + rearrange(pos_emb, 'n d -> () n d')
 
         # generate mask, depending on whether autoregressive or not
