@@ -128,20 +128,21 @@ def train(
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
-            if i != 0 and i % hp.validate_every == 0:
-                model.eval()
-                for _eval_step, eval_batch in enumerate(eval_dataloader):
-                    if _eval_step >= 1:
-                        break
-                    y = eval_batch["input_ids"].to(device)
-                    with torch.no_grad():
-                        loss = model(y)
-                        std = 0
-                        if torch.cuda.device_count() > 1:
-                            # std = loss.std().item()
-                            loss = loss.mean()
+            # if i != 0 and i % hp.validate_every == 0:
+            #     # make sure we only do this on GPU:0
+            #     model.eval()
+            #     for _eval_step, eval_batch in enumerate(eval_dataloader):
+            #         if _eval_step >= 1:
+            #             break
+            #         y = eval_batch["input_ids"].to(device)
+            #         with torch.no_grad():
+            #             loss = model(y)
+            #             std = 0
+            #             if torch.cuda.device_count() > 1:
+            #                 # std = loss.std().item()
+            #                 loss = loss.mean()
 
-                        print(f"val loss={loss.item():.4f} | {std=:.4f}")
+            #             print(f"val loss={loss.item():.4f} | {std=:.4f}")
                         # wandb.log({"val_loss": loss.item()})
         
             if i != 0 and i % hp.generate_every == 0:
