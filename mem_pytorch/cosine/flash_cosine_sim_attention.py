@@ -12,15 +12,21 @@ exec(open(os.path.dirname(os.path.abspath(__file__)) + '/version.py').read())
 
 # try to import cuda
 
+# try:
+#     cuda_pkg = importlib.import_module(__cuda_pkg_name__)
+
+#     forward = cuda_pkg.forward
+#     backward = cuda_pkg.backward
+#     debug = cuda_pkg.debug
+
+# except ImportError:
+#     print('CUDA extension for flash-cosine-sim-attention was not compiled correctly - please run `pip install flash-cosine-sim-attention --force-reinstall --no-cache-dir`')
+
 try:
-    cuda_pkg = importlib.import_module(__cuda_pkg_name__)
-
-    forward = cuda_pkg.forward
-    backward = cuda_pkg.backward
-    debug = cuda_pkg.debug
-
+    from flash_cosine_sim_attention_cuda import forward, backward
 except ImportError:
     print('CUDA extension for flash-cosine-sim-attention was not compiled correctly - please run `pip install flash-cosine-sim-attention --force-reinstall --no-cache-dir`')
+
 
 # helper functions
 

@@ -43,7 +43,7 @@ setup(
   license='MIT',
   description = 'A PyTorch implementation of the MEM model',
   long_description_content_type = 'text/markdown',
-  author = 'Phil Wang',
+  author = 'jouee / carro ',
   author_email = 'robert@opentensor.ai',
   url = 'https://github.com/opentensor/mem-pytorch',
   keywords = [
