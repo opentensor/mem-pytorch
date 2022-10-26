@@ -85,13 +85,13 @@ class Attention(nn.Module):
         # DIM_HEAD is x.shape[2]
 
         # reshape q, k, v to (BATCH, H, N_CTX, D_HEAD)
-        q = q.reshape(x.shape[0], h, x.shape[1], d_head)
+        query = q.reshape(x.shape[0], h, x.shape[1], d_head)
         k = k.reshape(x.shape[0], h, x.shape[1], d_head)
         v = v.reshape(x.shape[0], h, x.shape[1], d_head)
 
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
-        out = lambda: triton_flash_attention(q, k, v, self.scale)
+        out = lambda: triton_flash_attention(query, k, v, self.scale)
         pdb.set_trace()
         out = self.to_out(out())
 
