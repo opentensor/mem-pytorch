@@ -59,7 +59,7 @@ class Attention(nn.Module):
     def forward(self, x, mask = None, use_triton = None):
         use_triton = default(use_triton, self.use_triton)
         h = self.heads
-        d_head = d_head
+        d_head = self.d_head
         BATCH = x.shape[0]
         N_CTX = x.shape[1]
         H = h
