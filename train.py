@@ -118,7 +118,7 @@ def train(
             loss = model(x)
             std = 0
             if torch.cuda.device_count() > 1:
-                # loss = loss.mean()
+                loss = loss.sum()
                 std = loss.std().item()
 
             loss.backward()
