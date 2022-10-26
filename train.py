@@ -30,6 +30,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
         depth=depth,
         heads=heads,
         causal=True,
+        use_triton=True,
         # q_bucket_size=1024,
         # k_bucket_size=2048,
         # ff_chunks=5,
