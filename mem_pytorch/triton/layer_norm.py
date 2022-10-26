@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import triton
 import triton.language as tl
 
-from triton_transformer.utils import calc_num_warps, exists
+from mem_pytorch.triton.utils import calc_num_warps, exists
 
 # todo, make this autotuneable
 
