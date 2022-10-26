@@ -29,7 +29,7 @@ class PreNormResidual(nn.Module):
 
     def forward(self, x, **kwargs):
         use_triton = kwargs.get('use_triton', self.use_triton)
-        normed = layernorm(x, self.norm.weight, use_triton = False)
+        normed = layernorm(x, self.norm.weight, use_triton = use_triton)
         return self.fn(normed, **kwargs) + x
 
 # helpers classes
@@ -220,7 +220,7 @@ class TritonTransformer(nn.Module):
             x = attn(x, mask = mask, use_triton = use_triton)
             x = ff(x, use_triton = use_triton)
 
-        x = layernorm(x, self.norm.weight, use_triton = False, stable = True)
+        x = layernorm(x, self.norm.weight, use_triton = use_triton, stable = True)
         logits = self.to_logits(x)
 
         if not exists(labels):
