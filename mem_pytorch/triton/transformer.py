@@ -93,7 +93,7 @@ class Attention(nn.Module):
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
         out = triton_flash_attention(qr, kr, vr, self.scale)
-        # pdb.set_trace()
+        pdb.set_trace()
         out = self.to_out(out)
 
         return out
