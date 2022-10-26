@@ -65,13 +65,8 @@ class Attention(nn.Module):
         H = h
         D_HEAD = d_head
         # dtype = x.dtype
-        dtype = torch.float32
-        
-
-        qr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
-        kr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
-        vr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
-        sm_scale = 1.3
+        in_dtype = torch.float16
+        out_dtype = torch.float32
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
         # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
@@ -95,6 +90,9 @@ class Attention(nn.Module):
         v = v.reshape(x.shape[0], h, x.shape[1], d_head)
 
         # cast to float16
+        query = query.to(in_dtype)
+        k = k.to(in_dtype)
+        v = v.to(in_dtype)
 
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
@@ -103,6 +101,10 @@ class Attention(nn.Module):
   
         # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         # pdb.set_trace()
+
+        # cast to float32
+        out = out.to(out_dtype)
+        
         out = self.to_out(out)
 
         return out
