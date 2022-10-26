@@ -18,7 +18,6 @@ from mem_pytorch.triton import TritonTransformer
 from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
 )
-from mem_pytorch.transformer import Transformer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
