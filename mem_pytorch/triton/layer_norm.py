@@ -28,7 +28,7 @@ def layernorm_kernel_forward_training(
     stable,
     eps,
     block_size,
-    **kwargs
+    # **kwargs
 ):
     row_idx = tl.program_id(0)
     # BLOCK_SIZE = kwargs['BLOCK_SIZE']
@@ -81,9 +81,9 @@ def layernorm_kernel_forward_inference(
     stable,
     eps,
     block_size,
-    **meta
+    # **meta
 ):
-    print("\n\n\nMETA\n\n\n", meta)
+    # print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
     # BLOCK_SIZE = meta['BLOCK_SIZE']
     BLOCK_SIZE = block_size
@@ -126,9 +126,9 @@ def layernorm_kernel_backward(
     n_cols,
     eps,
     block_size,
-    **meta
+    # **meta
 ):
-    print("\n\n\nMETA\n\n\n", meta)
+    # print("\n\n\nMETA\n\n\n", meta)
     row_idx = tl.program_id(0)
     # BLOCK_SIZE = meta['BLOCK_SIZE']
     BLOCK_SIZE = block_size
@@ -167,7 +167,7 @@ def layernorm_gamma_kernel_backward(
     n_cols,
     block_size,
     row_block_size,
-    **meta
+    # **meta
 ):
     print("\n\n\nMETA\n\n\n", meta)
     col_idx = tl.program_id(0)
