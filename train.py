@@ -229,15 +229,15 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     # wandb.init(project="mem-pytorch", entity="robertmyers")
 
-    wandb.config = {
-        "learning_rate": cfg.regime.learning_rate,
-        "epochs": cfg.regime.num_batches,
-        "batch_size": cfg.regime.batch_size,
-        "heads": cfg.model.heads,
-        "depth": cfg.model.depth,
-        "dim": cfg.model.dim,
-        "sequence_length": cfg.model.sequence_length,
-    }
+    # wandb.config = {
+    #     "learning_rate": cfg.regime.learning_rate,
+    #     "epochs": cfg.regime.num_batches,
+    #     "batch_size": cfg.regime.batch_size,
+    #     "heads": cfg.model.heads,
+    #     "depth": cfg.model.depth,
+    #     "dim": cfg.model.dim,
+    #     "sequence_length": cfg.model.sequence_length,
+    # }
 
     model = create_model(
         dim=cfg.model.dim,
@@ -248,7 +248,7 @@ def main(cfg: DictConfig):
         use_cuda_kernel=cfg.model.use_cuda_kernel,
     )
 
-    wandb.watch(model)
+    # wandb.watch(model)
 
 
     data_train, data_val, tokenizer = create_streaming_dataset(
