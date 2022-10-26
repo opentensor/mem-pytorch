@@ -64,7 +64,8 @@ class Attention(nn.Module):
         N_CTX = x.shape[1]
         H = h
         D_HEAD = d_head
-        dtype = x.dtype
+        # dtype = x.dtype
+        dtype = torch.float16
         
 
         qr = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
@@ -91,7 +92,7 @@ class Attention(nn.Module):
 
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
-        out = lambda: triton_flash_attention(query, k, v, self.scale)
+        out = lambda: triton_flash_attention(qr, kr, vr, self.scale)
         # pdb.set_trace()
         out = self.to_out(out())
 
