@@ -74,7 +74,7 @@ def _fwd_kernel(
         acc = acc * acc_scale[:, None]
         # update acc
         v = tl.load(v_ptrs + start_n * stride_vk)
-        p = p.to(tl.float16)
+        p = p.to(tl.float32)
         acc += tl.dot(p, v)
         # update m_i and l_i
         l_i = l_i_new
