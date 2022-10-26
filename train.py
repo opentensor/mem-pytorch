@@ -2,6 +2,8 @@ import os
 import pdb
 from typing import Sequence
 
+import bittensor as bt
+
 import hydra
 from omegaconf import OmegaConf
 import numpy as np
@@ -16,7 +18,8 @@ from transformers import (
 )
 import argparse
 
-from mem_pytorch.transformer_x import CosineSimCausalTransformer
+from mem_pytorch.cosine import CosineSimCausalTransformer
+
 import wandb
 
 from mem_pytorch.autoregressive_wrapper import (
@@ -80,8 +83,10 @@ def create_model(
 
 
 def create_tokenizer(name: str = "gpt2"):
-    tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
-    tokenizer.pad_token = "[PAD]"
+    # tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
+    # tokenizer.pad_token = "[PAD]"
+
+    tokenizer = bt.tokenizer()
 
     return tokenizer
 
@@ -127,6 +132,7 @@ def train(
     tokenizer,
     data_val,
     fp16: bool,
+    gradient_accumulate_every: int,
     hp: DictConfig,
     model_name: str,
     save_dir: str,
@@ -142,21 +148,18 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=10_000, mininterval=10., desc='training')):
-            # if fp16:
-            #     # batch = {k: v.half() for k, v in batch.items()}
-            #     batch['input_ids'] = batch['input_ids'].half()
-
-            # batch = {k: v.to(device) for k, v in batch.items()}
+        for i, batch in enumerate(tqdm(train_dataloader, total=150_000, mininterval=10., desc='training')):
 
             x = batch['input_ids'].to(device)
-            with torch.cuda.amp.autocast(enabled=fp16):
-                # pdb.set_trace()
-                loss = model(x, return_loss=True)
-                std = 0
-                if torch.cuda.device_count() > 1:
-                    loss = loss.mean()
-                    std = loss.std().item()
+
+            for _ in range(gradient_accumulate_every):
+                with torch.cuda.amp.autocast(enabled=fp16):
+                    # pdb.set_trace()
+                    loss = model(x, return_loss=True)
+                    std = 0
+                    if torch.cuda.device_count() > 1:
+                        loss = loss.mean()
+                        std = loss.std().item()
 
             if fp16:
                 scaler.scale(loss).backward()
@@ -174,8 +177,8 @@ def train(
 
             print(f"loss={loss.item():.4f} | {std=:.4f}")
 
-            if i != 0 and step % hp.eval_every == 0:
-                wandb.log({"loss": loss.item()})
+            # if i != 0 and step % hp.eval_every == 0:
+                # wandb.log({"loss": loss.item()})
 
             if i != 0 and i % hp.validate_every == 0:
                 model.eval()
@@ -191,7 +194,7 @@ def train(
                             loss = loss.mean()
 
                         print(f"val loss={loss.item():.4f} | {std=:.4f}")
-                        wandb.log({"val_loss": loss.item()})
+                        # wandb.log({"val_loss": loss.item()})
 
             if i != 0 and i % hp.generate_every == 0:
                 # if statement to  check if the device is cuda:0
@@ -224,7 +227,7 @@ def train(
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
-    wandb.init(project="mem-pytorch", entity="robertmyers")
+    # wandb.init(project="mem-pytorch", entity="robertmyers")
 
     wandb.config = {
         "learning_rate": cfg.regime.learning_rate,
@@ -242,6 +245,7 @@ def main(cfg: DictConfig):
         heads=cfg.model.heads,
         seq_len=cfg.model.sequence_length,
         fp16=cfg.model.fp16,
+        gradient_accumulate_every=cfg.regime.gradient_accumulate_every,
         use_cuda_kernel=cfg.model.use_cuda_kernel,
     )
 
