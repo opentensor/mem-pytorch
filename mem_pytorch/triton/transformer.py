@@ -29,7 +29,7 @@ class PreNormResidual(nn.Module):
 
     def forward(self, x, **kwargs):
         use_triton = kwargs.get('use_triton', self.use_triton)
-        normed = layernorm(x, self.norm.weight, use_triton = use_triton)
+        normed = layernorm(x, self.norm.weight, use_triton = False)
         return self.fn(normed, **kwargs) + x
 
 # helpers classes
