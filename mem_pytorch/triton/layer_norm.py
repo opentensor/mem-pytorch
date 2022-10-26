@@ -120,10 +120,11 @@ def layernorm_kernel_backward(
     mean_centered_row_stride,
     n_cols,
     eps,
+    BLOCK_SIZE,
     **meta
 ):
     row_idx = tl.program_id(0)
-    BLOCK_SIZE = meta['BLOCK_SIZE']
+    # BLOCK_SIZE = meta['BLOCK_SIZE']
 
     dy_row_start_ptr = dy_ptr + row_idx * dy_row_stride
     mean_centered_row_start_ptr = mean_centered_ptr + row_idx * mean_centered_row_stride
