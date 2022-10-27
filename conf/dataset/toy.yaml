@@ -1,5 +1,5 @@
 name: toy
 
 constituent_sets:
-  - "the_pile"
-  #- "c4"
+  # - "the_pile"
+  - "c4"
