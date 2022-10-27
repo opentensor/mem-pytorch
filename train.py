@@ -67,8 +67,8 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
     val_sets = []
     # TODO: More robust config handling for datasets w/ other kwargs
     for set_name in set_names:
-        train_sets.append(load_dataset(set_name, split="train", streaming=True))
-        val_sets.append(load_dataset(set_name, split="validation", streaming=True))
+        train_sets.append(load_dataset(set_name, 'en', split="train", streaming=True))
+        val_sets.append(load_dataset(set_name, 'en', split="validation", streaming=True))
     train_dataset = interleave_datasets(train_sets)
     val_dataset = interleave_datasets(val_sets)
 
