@@ -21,9 +21,7 @@ for i in range(10):
 
     x = torch.randint(0, 256, (1, 1024)).cuda()
     labels = torch.randint(0, 256, (1, 1024)).cuda()
-    print(x.shape)
-    x.to(torch.float16)
-    labels.to(torch.float16)
+
 
     # forward and backward pass without triton
 

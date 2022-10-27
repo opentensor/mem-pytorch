@@ -93,6 +93,7 @@ class Attention(nn.Module):
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
         out = triton_flash_attention(query, k, v, self.scale)
+        # out = flash_attn_func(query, k, v, self.scale, causal=self.causal)
         out = rearrange(out, 'b h n d -> b n (h d)')
   
         # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
