@@ -217,7 +217,7 @@ def main(cfg: DictConfig):
         )
     else: 
         data_train, data_val, tokenizer = create_regular_dataset(
-            cfg.dataset.set_names, cfg.model.sequence_length
+            cfg.dataset.constituent_sets, cfg.model.sequence_length
         )
     train_dataloader = DataLoader(
         data_train,
