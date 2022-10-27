@@ -1,3 +1,4 @@
+import pdb
 import torch
 import torch.nn.functional as F
 
@@ -153,6 +154,7 @@ def relu_squared_activation(x):
 class _relu_squared(torch.autograd.Function):
     @classmethod
     def forward(self, ctx, x, w):
+        pdb.set_trace()
         o = matmul(x, w, activation = relu_squared_activation)
         if x.requires_grad:
             ctx.save_for_backward(x, w, o)
