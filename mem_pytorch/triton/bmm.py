@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import triton
 import triton.language as tl
 
+from mem_pytorch.triton.utils import exists, default
+
 # %
 # :code:`triton.jit`'ed functions can be auto-tuned by using the `triton.autotune`
 # decorator, which consumes:
@@ -119,6 +121,58 @@ def matmul_kernel(
     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
     tl.store(c_ptrs, c, mask=c_mask)
 
+# %%
+# We can now create a convenience wrapper function that only takes two input tensors
+# and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel
+@triton.jit
+def bmm_kernel(
+    x_ptr, y_ptr, o_ptr,
+    M, N, K,
+    stride_al, stride_am, stride_ak,
+    stride_bl, stride_bk, stride_bn,
+    stride_ol, stride_om, stride_on,
+    # Meta-parameters
+    BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr,
+    GROUP_SIZE_M: tl.constexpr,
+    ACTIVATION: tl.constexpr,
+):
+
+    pid_batch = tl.program_id(0)
+    pid = tl.program_id(1)
+
+    num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
+    num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n
+    group_id = pid // num_pid_in_group
+    first_pid_m = group_id * GROUP_SIZE_M
+    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
+    pid_m = first_pid_m + (pid % group_size_m)
+    pid_n = (pid % num_pid_in_group) // group_size_m
+
+    offs_am = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+    offs_bn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    offs_k = tl.arange(0, BLOCK_SIZE_K)
+    x_ptrs = x_ptr + (offs_am[:, None]*stride_am + offs_k [None, :]*stride_ak + pid_batch*stride_al)
+    y_ptrs = y_ptr + (offs_k [:, None]*stride_bk + offs_bn[None, :]*stride_bn + pid_batch*stride_bl)
+
+    o = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+    for k in range(0, K, BLOCK_SIZE_K):
+        x = tl.load(x_ptrs)
+        y = tl.load(y_ptrs)
+        o += tl.dot(x, y)
+
+        x_ptrs += BLOCK_SIZE_K * stride_ak
+        y_ptrs += BLOCK_SIZE_K * stride_bk
+
+    if exists(ACTIVATION):
+        o = ACTIVATION(o)
+
+    offs_m = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+    offs_n = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    mask = (offs_m[:, None] < M) & (offs_n[None, :] < N)
+
+    o_ptrs = o_ptr + stride_om * offs_m[:, None] + stride_on * offs_n[None, :] + stride_ol * pid_batch
+    tl.store(o_ptrs, o, mask=mask)
 
 # we can fuse `leaky_relu` by providing it as an `ACTIVATION` meta-parameter in `_matmul`
 @triton.jit
@@ -129,10 +183,6 @@ def leaky_relu(x):
 @triton.jit
 def relu_squared_activation(x):
     return tl.where(x > 0, x * x, 0.)
-
-# %%
-# We can now create a convenience wrapper function that only takes two input tensors
-# and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel
 
 
 def matmul(a, b, activation=""):
@@ -173,10 +223,10 @@ def triton_bmm(x, y, activation = None):
     o = torch.empty((B, M, N), device = x.device, dtype = x.dtype)
 
     grid = lambda META: (
-        triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
+        B, triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
 
-    matmul_kernel[grid](
+    bmm_kernel[grid](
         x, y, o,
         M, N, K,
         x.stride(0), x.stride(1), x.stride(2),
