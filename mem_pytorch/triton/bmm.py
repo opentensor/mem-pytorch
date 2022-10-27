@@ -135,6 +135,32 @@ def relu_squared_activation(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel
 
 
+def matmul(a, b, activation=""):
+    # checks constraints
+    assert a.shape[1] == b.shape[0], "incompatible dimensions"
+    assert a.is_contiguous(), "matrix A must be contiguous"
+    assert b.is_contiguous(), "matrix B must be contiguous"
+    M, K = a.shape
+    K, N = b.shape
+    assert (
+        K % 32 == 0
+    ), "We don't check memory-out-of-bounds with K so K must be divisible by BLOCK_SIZE_K"
+    # allocates output
+    c = torch.empty((M, N), device=a.device, dtype=a.dtype)
+    # 1D launch kernel where each block gets its own program.
+    grid = lambda META: (
+        triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
+    )
+    matmul_kernel[grid](
+        a, b, c,
+        M, N, K,
+        a.stride(0), a.stride(1),
+        b.stride(0), b.stride(1),
+        c.stride(0), c.stride(1),
+        ACTIVATION=activation,
+    )
+    return c
+
 def triton_bmm(x, y, activation = None):
     B, M, K = x.shape
 
