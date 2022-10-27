@@ -119,7 +119,7 @@ def train(
         for i, batch in enumerate(tqdm(train_dataloader, total=100_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
             with torch.cuda.amp.autocast():
-                loss = model(x, x)
+                loss = model(x, labels=x)
                 std = 0
                 if torch.cuda.device_count() > 1:
                     loss = loss.mean()
