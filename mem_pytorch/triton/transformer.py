@@ -139,7 +139,7 @@ class FeedForward(nn.Module):
     def forward(self, x, use_triton = None):
         use_triton = default(use_triton, self.use_triton)
 
-        x = fused_relu_squared(x, self.proj_in_weight, use_triton = use_triton)
+        x = fused_relu_squared(x, self.proj_in_weight, use_triton = False)
         x = dropout_fn(x, self.dropout, use_triton = use_triton)
 
         x = self.proj_out(x)
