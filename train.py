@@ -41,7 +41,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model = torch.nn.DataParallel(model, device_ids=[torch.cuda.device_count()])
+        model = torch.nn.DataParallel(model, device_ids=[range(torch.cuda.device_count())])
 
     model.to(device)
 
