@@ -30,7 +30,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
         depth=depth,
         heads=heads,
         causal=True,
-        use_triton=True,
+        use_triton=False,
         # q_bucket_size=1024,
         # k_bucket_size=2048,
         # ff_chunks=5,
@@ -39,9 +39,9 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
     model = AutoregressiveWrapper(model)
 
-    # if torch.cuda.device_count() > 1:
-    #     print("Let's use", torch.cuda.device_count(), "GPUs!")
-    #     model = torch.nn.DataParallel(model)
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = torch.nn.DataParallel(model)
 
     model.to(device)
 
