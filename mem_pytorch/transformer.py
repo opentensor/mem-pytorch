@@ -241,7 +241,7 @@ class TritonTransformer(nn.Module):
             x = attn(x)
             x = ff(x, use_triton = use_triton)
 
-        x = layernorm(x, self.norm.weight, use_triton = use_triton, stable = True)
+        x = layernorm(x, self.norm.weight, use_triton = False, stable = True) # turn this back on
         logits = self.to_logits(x)
 
         if not exists(labels):
