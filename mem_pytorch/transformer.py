@@ -212,7 +212,7 @@ class TritonTransformer(nn.Module):
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                wrapper(Attention(dim, heads = heads, dim_head = dim_head, causal = causal, dropout = attn_dropout, use_triton = use_triton)),
+                wrapper(CosineAttention(dim, heads = heads, dim_head = dim_head, causal = causal, dropout = attn_dropout, use_cuda_kernel= True)),
                 wrapper(FeedForward(dim, dropout = ff_dropout, mult = ff_mult, use_triton = use_triton))
             ]))
 
