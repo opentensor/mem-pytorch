@@ -1,40 +1,58 @@
 import torch
-from torch import autograd
 import torch.nn.functional as F
-
-from mem_pytorch.triton.utils import calc_num_warps, exists
 
 import triton
 import triton.language as tl
 
+# %
+# :code:`triton.jit`'ed functions can be auto-tuned by using the `triton.autotune`
+# decorator, which consumes:
+#   - A list of :code:`triton.Config` objects that define different configurations of
+#       meta-parameters (e.g., BLOCK_SIZE_M) and compilation options (e.g., num_warps) to try
+#   - An autotuning *key* whose change in values will trigger evaluation of all the
+#       provided configs
+
+
 @triton.autotune(
     configs=[
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 256, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=3, num_warps=8),
+        triton.Config({'BLOCK_SIZE_M': 256, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=3, num_warps=8),
+        triton.Config({'BLOCK_SIZE_M': 256, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 256, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
         triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 64 , 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_SIZE_M': 64 , 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 32 , 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
-        triton.Config({'BLOCK_SIZE_M': 64 , 'BLOCK_SIZE_N': 32 , 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=5, num_warps=2),
-        triton.Config({'BLOCK_SIZE_M': 32 , 'BLOCK_SIZE_N': 64 , 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=5, num_warps=2),
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=4, num_warps=4),
+        triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=5, num_warps=2),
+        triton.Config({'BLOCK_SIZE_M': 32, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}, num_stages=5, num_warps=2),
     ],
     key=['M', 'N', 'K'],
 )
 @triton.jit
-def bmm_kernel(
-    x_ptr, y_ptr, o_ptr,
+def matmul_kernel(
+    # Pointers to matrices
+    a_ptr, b_ptr, c_ptr,
+    # Matrix dimensions
     M, N, K,
-    stride_al, stride_am, stride_ak,
-    stride_bl, stride_bk, stride_bn,
-    stride_ol, stride_om, stride_on,
-    **meta,
+    # The stride variables represent how much to increase the ptr by when moving by 1
+    # element in a particular dimension. E.g. stride_am is how much to increase a_ptr
+    # by to get the element one row down (A has M rows)
+    stride_am, stride_ak,
+    stride_bk, stride_bn,
+    stride_cm, stride_cn,
+    # Meta-parameters
+    BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr,
+    GROUP_SIZE_M: tl.constexpr,
+    ACTIVATION: tl.constexpr,
 ):
-    BLOCK_SIZE_M = meta['BLOCK_SIZE_M']
-    BLOCK_SIZE_N = meta['BLOCK_SIZE_N']
-    BLOCK_SIZE_K = meta['BLOCK_SIZE_K']
-    GROUP_SIZE_M = 8
-
-    pid_batch = tl.program_id(0)
-    pid = tl.program_id(1)
-
+    """Kernel for computing the matmul C = A x B.
+    A has shape (M, K), B has shape (K, N) and C has shape (M, N)
+    """
+    # -----------------------------------------------------------
+    # Map program ids `pid` to the block of C it should compute.
+    # This is done in a grouped ordering to promote L2 data reuse
+    # See above `L2 Cache Optimizations` section for details
+    pid = tl.program_id(axis=0)
     num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
     num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
     num_pid_in_group = GROUP_SIZE_M * num_pid_n
@@ -44,64 +62,98 @@ def bmm_kernel(
     pid_m = first_pid_m + (pid % group_size_m)
     pid_n = (pid % num_pid_in_group) // group_size_m
 
+    # ----------------------------------------------------------
+    # Create pointers for the first blocks of A and B.
+    # We will advance this pointer as we move in the K direction
+    # and accumulate
+    # a_ptrs is a block of [BLOCK_SIZE_M, BLOCK_SIZE_K] pointers
+    # b_ptrs is a block of [BLOCK_SIZE_K, BLOCK_SIZE_n] pointers
+    # see above `Pointer Arithmetics` section for details
     offs_am = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
     offs_bn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
     offs_k = tl.arange(0, BLOCK_SIZE_K)
-    x_ptrs = x_ptr + (offs_am[:, None]*stride_am + offs_k [None, :]*stride_ak + pid_batch*stride_al)
-    y_ptrs = y_ptr + (offs_k [:, None]*stride_bk + offs_bn[None, :]*stride_bn + pid_batch*stride_bl)
+    a_ptrs = a_ptr + (offs_am[:, None] * stride_am + offs_k[None, :] * stride_ak)
+    b_ptrs = b_ptr + (offs_k[:, None] * stride_bk + offs_bn[None, :] * stride_bn)
 
-    o = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+    # -----------------------------------------------------------
+    # Iterate to compute a block of the C matrix
+    # We accumulate into a `[BLOCK_SIZE_M, BLOCK_SIZE_N]` block
+    # of fp32 values for higher accuracy.
+    # `accumulator` will be converted back to fp16 after the loop
+    accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     for k in range(0, K, BLOCK_SIZE_K):
-        x = tl.load(x_ptrs)
-        y = tl.load(y_ptrs)
-        o += tl.dot(x, y)
+        # Note that for simplicity, we don't apply a mask here.
+        # This means that if K is not a multiple of BLOCK_SIZE_K,
+        # this will access out-of-bounds memory and produce an
+        # error or (worse!) incorrect results.
+        a = tl.load(a_ptrs)
+        b = tl.load(b_ptrs)
+        # We accumulate along the K dimension
+        accumulator += tl.dot(a, b)
+        # Advance the ptrs to the next K block
+        a_ptrs += BLOCK_SIZE_K * stride_ak
+        b_ptrs += BLOCK_SIZE_K * stride_bk
+    # you can fuse arbitrary activation functions here
+    # while the accumulator is still in FP32!
+    if ACTIVATION == "leaky_relu":
+        accumulator = leaky_relu(accumulator)
+    c = accumulator.to(tl.float16)
 
-        x_ptrs += BLOCK_SIZE_K * stride_ak
-        y_ptrs += BLOCK_SIZE_K * stride_bk
+    # -----------------------------------------------------------
+    # Write back the block of the output matrix C
+    offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+    offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
+    c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
+    tl.store(c_ptrs, c, mask=c_mask)
 
-    if exists(meta['ACTIVATION']):
-        o = meta['ACTIVATION'](o)
 
-    offs_m = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
-    offs_n = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-    mask = (offs_m[:, None] < M) & (offs_n[None, :] < N)
+# we can fuse `leaky_relu` by providing it as an `ACTIVATION` meta-parameter in `_matmul`
+@triton.jit
+def leaky_relu(x):
+    x = x + 1
+    return tl.where(x >= 0, x, 0.01 * x)
 
-    o_ptrs = o_ptr + stride_om * offs_m[:, None] + stride_on * offs_n[None, :] + stride_ol * pid_batch
-    tl.store(o_ptrs, o, mask=mask)
 
-def triton_bmm(x, y, activation = None):
-    B, M, K = x.shape
+# %%
+# We can now create a convenience wrapper function that only takes two input tensors
+# and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel
 
-    if y.ndim == 2:
-        y = y.unsqueeze(0).expand(B, -1, -1)
 
-    _, K, N = y.shape
-    assert (K % 32 == 0), "K must be divisible by 32"
-
-    o = torch.empty((B, M, N), device = x.device, dtype = x.dtype)
-
+def matmul(a, b, activation=""):
+    # checks constraints
+    assert a.shape[1] == b.shape[0], "incompatible dimensions"
+    assert a.is_contiguous(), "matrix A must be contiguous"
+    assert b.is_contiguous(), "matrix B must be contiguous"
+    M, K = a.shape
+    K, N = b.shape
+    assert (
+        K % 32 == 0
+    ), "We don't check memory-out-of-bounds with K so K must be divisible by BLOCK_SIZE_K"
+    # allocates output
+    c = torch.empty((M, N), device=a.device, dtype=a.dtype)
+    # 1D launch kernel where each block gets its own program.
     grid = lambda META: (
-        B, triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
+        triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
-
-    bmm_kernel[grid](
-        x, y, o,
+    matmul_kernel[grid](
+        a, b, c,
         M, N, K,
-        x.stride(0), x.stride(1), x.stride(2),
-        y.stride(0), y.stride(1), y.stride(2),
-        o.stride(0), o.stride(1), o.stride(2),
-        ACTIVATION = activation
+        a.stride(0), a.stride(1),
+        b.stride(0), b.stride(1),
+        c.stride(0), c.stride(1),
+        ACTIVATION=activation,
     )
-    return o
+    return c
 
 @triton.jit
 def relu_squared_activation(x):
     return tl.where(x > 0, x * x, 0.)
 
-class _relu_squared(autograd.Function):
+class _relu_squared(torch.autograd.Function):
     @classmethod
     def forward(self, ctx, x, w):
-        o = triton_bmm(x, w, activation = relu_squared_activation)
+        o = matmul(x, w, activation = relu_squared_activation)
         if x.requires_grad:
             ctx.save_for_backward(x, w, o)
         return o
@@ -110,8 +162,8 @@ class _relu_squared(autograd.Function):
     def backward(self, ctx, dy):
         x, w, o = ctx.saved_tensors
         dy = torch.sqrt(o) * 2 * dy
-        dx = triton_bmm(dy, w.t())
-        dw = triton_bmm(x.transpose(-1, -2), dy)
+        dx = matmul(dy, w.t())
+        dw = matmul(x.transpose(-1, -2), dy)
         return dx, dw
 
 triton_relu_squared = _relu_squared.apply
