@@ -227,5 +227,5 @@ class TritonTransformer(nn.Module):
         if not exists(labels):
             return logits
 
-        loss = cross_entropy_fn(logits, labels, ignore_index = 0, use_triton = use_triton)
+        loss = cross_entropy_fn(logits, labels, ignore_index = 0, use_triton = False)
         return loss
