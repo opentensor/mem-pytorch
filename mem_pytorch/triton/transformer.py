@@ -86,9 +86,9 @@ class Attention(nn.Module):
         v = v.reshape(x.shape[0], h, x.shape[1], d_head)
 
         # cast to float16
-        query = query.to(in_dtype)
-        k = k.to(in_dtype)
-        v = v.to(in_dtype)
+        # query = query.to(in_dtype)
+        # k = k.to(in_dtype)
+        # v = v.to(in_dtype)
 
         # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
@@ -98,7 +98,7 @@ class Attention(nn.Module):
         # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
 
         # cast to float32
-        out = out.to(out_dtype)
+        # out = out.to(out_dtype)
         # pdb.set_trace()
 
         out = self.to_out(out)
