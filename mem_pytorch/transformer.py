@@ -14,6 +14,8 @@ from mem_pytorch.triton.flash_attention import triton_flash_attention
 
 from mem_pytorch.triton.utils import exists, default
 
+from mem_pytorch.flash import plain_cosine_sim_attention, flash_cosine_sim_attention
+
 # classes
 
 
@@ -33,6 +35,42 @@ class PreNormResidual(nn.Module):
         return self.fn(normed, **kwargs) + x
 
 # helpers classes
+
+class CosineAttention(nn.Module):
+    def __init__(
+        self,
+        dim,
+        dim_head = 64,
+        heads = 8,
+        scale = 8,
+        l2norm_groups = 1,
+        use_cuda_kernel = False,
+        **kwargs
+    ):
+        super().__init__()
+        inner_dim = dim_head * heads
+        self.scale = scale
+        self.heads = heads
+
+        self.l2norm_groups = l2norm_groups
+        self.attn_fn = plain_cosine_sim_attention if not use_cuda_kernel else partial(flash_cosine_sim_attention, **kwargs)
+
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        self.to_v = nn.Linear(dim, inner_dim, bias = False)
+        self.to_out = nn.Linear(inner_dim, dim, bias = False)
+
+    def forward(self, x):
+        h, scale, l2norm_groups = self.heads, self.scale, self.l2norm_groups
+
+        q, k, v = self.to_q(x), self.to_k(x), self.to_v(x)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), (q, k, v))
+
+        o = self.attn_fn(q, k, v, causal = True, scale = scale, groups = l2norm_groups)
+
+        o = rearrange(o, 'b h n d -> b n (h d)')
+        return self.to_out(o)
+
 
 class Attention(nn.Module):
     def __init__(

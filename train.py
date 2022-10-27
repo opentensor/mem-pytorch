@@ -13,7 +13,7 @@ from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
 )
-from mem_pytorch.triton import TritonTransformer
+from mem_pytorch import TritonTransformer
 
 from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
