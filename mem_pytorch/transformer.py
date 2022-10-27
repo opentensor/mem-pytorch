@@ -107,11 +107,8 @@ class Attention(nn.Module):
         out_dtype = torch.float32
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
+        # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
 
-        # q = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
-        # k = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
-        # v = torch.randn((BATCH, H, N_CTX, D_HEAD), dtype=dtype, device="cuda", requires_grad=True)
 
         # BATCH = x.shape[0]
         # H is self.heads
@@ -119,45 +116,29 @@ class Attention(nn.Module):
         # DIM_HEAD is x.shape[2]
 
         # reshape q, k, v to (BATCH, H, N_CTX, D_HEAD)
-        # query = q.reshape(x.shape[0], h, x.shape[1], d_head)
-        # k = k.reshape(x.shape[0], h, x.shape[1], d_head)
-        # v = v.reshape(x.shape[0], h, x.shape[1], d_head)
+        query = q.reshape(x.shape[0], h, x.shape[1], d_head)
+        k = k.reshape(x.shape[0], h, x.shape[1], d_head)
+        v = v.reshape(x.shape[0], h, x.shape[1], d_head)
 
         # # cast to float16
-        # # query = query.to(in_dtype)
-        # # k = k.to(in_dtype)
-        # # v = v.to(in_dtype)
+        query = query.to(in_dtype)
+        k = k.to(in_dtype)
+        v = v.to(in_dtype)
 
         # # einsum transform q, k, v to (BATCH, H, N_CTX, N_CTX)
 
-        # out = triton_flash_attention(query, k, v, self.scale)
-        # # out = flash_attn_func(query, k, v, self.scale, causal=self.causal)
-        # out = rearrange(out, 'b h n d -> b n (h d)')
+        out = triton_flash_attention(query, k, v, self.scale)
+        out = rearrange(out, 'b h n d -> b n (h d)')
   
         # # out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
 
         # # cast to float32
-        # # out = out.to(out_dtype)
+        out = out.to(out_dtype)
         # # pdb.set_trace()
 
-        # out = self.to_out(out)
-
-        # return out
-
-
-        sim = einsum('b i d, b j d -> b i j', q, k)
-
-        if exists(mask):
-            mask_value = -torch.finfo(sim.dtype).max
-            sim = sim.masked_fill(mask, mask_value)
-
-        attn = softmax(sim, causal = self.causal, use_triton = use_triton)
-        attn = dropout_fn(attn, self.dropout, use_triton = use_triton)
-
-        out = einsum('b i j, b j d -> b i d', attn, v)
-        out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         out = self.to_out(out)
-        return dropout_fn(out, self.dropout, use_triton = use_triton)
+
+        return out
 
 class FeedForward(nn.Module):
     def __init__(
@@ -257,7 +238,7 @@ class TritonTransformer(nn.Module):
         # go through layers
 
         for attn, ff in self.layers:
-            x = attn(x, use_cuda_kernel = True)
+            x = attn(x)
             x = ff(x, use_triton = use_triton)
 
         x = layernorm(x, self.norm.weight, use_triton = use_triton, stable = True)
