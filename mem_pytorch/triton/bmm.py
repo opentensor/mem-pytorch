@@ -154,6 +154,7 @@ def relu_squared_activation(x):
 class _relu_squared(torch.autograd.Function):
     @classmethod
     def forward(self, ctx, x, w):
+        we = w.detach().requires_grad_(True)
         pdb.set_trace()
         o = matmul(x, w, activation = relu_squared_activation)
         if x.requires_grad:
