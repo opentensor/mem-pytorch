@@ -53,14 +53,25 @@ def matmul_kernel(
     # Map program ids `pid` to the block of C it should compute.
     # This is done in a grouped ordering to promote L2 data reuse
     # See above `L2 Cache Optimizations` section for details
+    
+    # program ID
     pid = tl.program_id(axis=0)
+    # number of program ids along the M axis
     num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
+    # number of programs ids along the N axis
     num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
+    # number of programs in group
     num_pid_in_group = GROUP_SIZE_M * num_pid_n
+    # id of the group this program is in
     group_id = pid // num_pid_in_group
+    # row-id of the first program in the group
     first_pid_m = group_id * GROUP_SIZE_M
+    # if `num_pid_m` isn't divisible by `GROUP_SIZE_M`, the last group is smaller
     group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
+    # *within groups*, programs are ordered in a column-major order
+    # row-id of the program in the *launch grid*
     pid_m = first_pid_m + (pid % group_size_m)
+    # col-id of the program in the *launch grid*
     pid_n = (pid % num_pid_in_group) // group_size_m
 
     # ----------------------------------------------------------
@@ -123,7 +134,7 @@ def leaky_relu(x):
 
 def matmul(a, b, activation=""):
     # checks constraints
-    assert a.shape[-1] == b.shape[0], "incompatible dimensions"
+    assert a.shape[1] == b.shape[0], "incompatible dimensions"
     assert a.is_contiguous(), "matrix A must be contiguous"
     assert b.is_contiguous(), "matrix B must be contiguous"
     M, K = a.shape
@@ -154,8 +165,8 @@ def relu_squared_activation(x):
 class _relu_squared(torch.autograd.Function):
     @classmethod
     def forward(self, ctx, x, w):
-        we = w.detach().requires_grad_(True)
-        pdb.set_trace()
+        x = torch.squeeze(x) # added squeeze to remove batch dimension
+        # pdb.set_trace()
         o = matmul(x, w, activation = relu_squared_activation)
         if x.requires_grad:
             ctx.save_for_backward(x, w, o)
