@@ -19,9 +19,9 @@ model = TritonTransformer(
 
 for i in range(10):
 
-    x = torch.randn((0, 256, (1, 1024)), dtype=torch.float16).cuda()
-    labels = torch.randn((0, 256, (1, 1024)), dtype=torch.float16).cuda()
-
+    x = torch.randint(0, 256, (1, 1024)).cuda()
+    labels = torch.randint((0, 256, (1, 1024))).cuda()
+    print(x)
     # forward and backward pass without triton
 
     loss = model(x, labels = labels)
