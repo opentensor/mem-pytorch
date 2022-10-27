@@ -5,7 +5,7 @@ from torch import nn, einsum
 import torch.nn.functional as F
 from einops import rearrange
 
-from .layer_norm import layernorm
+from mem_pytorch.triton.layer_norm import layernorm
 from mem_pytorch.triton.softmax import softmax
 from mem_pytorch.triton.cross_entropy import cross_entropy_fn
 from mem_pytorch.triton.bmm import fused_relu_squared
