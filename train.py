@@ -127,8 +127,8 @@ def train(
             
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.step()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
