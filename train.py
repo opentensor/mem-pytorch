@@ -117,6 +117,7 @@ def train(
         for i, batch in enumerate(tqdm(train_dataloader, total=100_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
             loss = model(x)
+            print(f"loss={loss.item():.4f} | {std=:.4f}")
             std = 0
             if torch.cuda.device_count() > 1:
                 loss = loss.sum()
@@ -127,7 +128,6 @@ def train(
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.step()
             optim.zero_grad()
-            print(f"loss={loss.item():.4f} | {std=:.4f}")
 
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
