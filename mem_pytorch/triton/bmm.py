@@ -123,7 +123,7 @@ def leaky_relu(x):
 
 def matmul(a, b, activation=""):
     # checks constraints
-    assert a.shape[1] == b.shape[0], "incompatible dimensions"
+    assert a.shape[-1] == b.shape[0], "incompatible dimensions"
     assert a.is_contiguous(), "matrix A must be contiguous"
     assert b.is_contiguous(), "matrix B must be contiguous"
     M, K = a.shape
