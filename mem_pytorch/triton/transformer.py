@@ -133,7 +133,7 @@ class FeedForward(nn.Module):
         inner_dim = dim * mult
         self.dropout = dropout
         # self.proj_in_weight = nn.Parameter(torch.randn(dim, inner_dim))
-        self.proj_in_weight = nn.Linear(dim, dim)
+        self.proj_in_weight = nn.Linear(torch.randn(dim, dim))
         self.proj_out = nn.Linear(inner_dim, dim)
 
     def forward(self, x, use_triton = None):
