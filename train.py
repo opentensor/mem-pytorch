@@ -118,24 +118,19 @@ def train(
 
         for i, batch in enumerate(tqdm(train_dataloader, total=100_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
-            with torch.cuda.amp.autocast():
-                loss = model(x)
-                std = 0
-                if torch.cuda.device_count() > 1:
-                    loss = loss.mean()
-                    std = loss.std().item()
+            loss = model(x)
+            std = 0
+            if torch.cuda.device_count() > 1:
+                loss = loss.mean()
+                std = loss.std().item()
             
-            scaler.scale(loss).backward()
-            scaler.step(optim)
-            scaler.update()
+            
+            loss.backward()
 
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            optim.step()
+            optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std=:.4f}")
-            # loss.backward()
-
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-            # optim.step()
-            # optim.zero_grad()
-
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
             #     model.eval()
