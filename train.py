@@ -67,8 +67,8 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
     val_sets = []
     # TODO: More robust config handling for datasets w/ other kwargs
     for set_name in set_names:
-        train_sets.append(load_dataset(set_name, 'en', split="train", streaming=True))
-        val_sets.append(load_dataset(set_name, 'en', split="validation", streaming=True))
+        train_sets.append(load_dataset(set_name, split="train", streaming=True))
+        val_sets.append(load_dataset(set_name, split="validation", streaming=True))
     train_dataset = interleave_datasets(train_sets)
     val_dataset = interleave_datasets(val_sets)
 
@@ -93,6 +93,32 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
     data_val = data_val.shuffle(seed, buffer_size=buffer_size)
 
     return data_train, data_val, tokenizer
+
+
+def create_regular_dataset(set_names: Sequence[str], seq_len: int):
+    
+    train_sets = []
+    val_sets = []  
+
+    for set_name in set_names:
+        train_sets.append(load_dataset(set_name, split="train"))
+        val_sets.append(load_dataset(set_name, split="validation"))
+    train_dataset = interleave_datasets(train_sets)
+    val_dataset = interleave_datasets(val_sets)
+
+    tokenizer = create_tokenizer()
+
+    def encode(examples):
+        return tokenizer(
+            examples["text"], padding="max_length", truncation=True, max_length=seq_len
+        )
+
+    data_train = train_dataset.map(
+        encode, batched=True, remove_columns=["text", "meta"]
+    )
+    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+
+    return data_train, data_val, tokenizer 
 
 
 def train(
@@ -185,9 +211,14 @@ def main(cfg: DictConfig):
         seq_len=cfg.model.sequence_length,
     )
 
-    data_train, data_val, tokenizer = create_streaming_dataset(
-        set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length
-    )
+    if cfg.dataset.data_type == "streaming":
+        data_train, data_val, tokenizer = create_streaming_dataset(
+            set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length
+        )
+    else: 
+        data_train, data_val, tokenizer = create_regular_dataset(
+            cfg.dataset.set_names, cfg.model.sequence_length
+        )
     train_dataloader = DataLoader(
         data_train,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
