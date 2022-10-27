@@ -30,7 +30,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
         depth=depth,
         heads=heads,
         causal=True,
-        use_triton=False,
+        use_triton=True,
         # q_bucket_size=1024,
         # k_bucket_size=2048,
         # ff_chunks=5,
@@ -142,13 +142,13 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=100_000, mininterval=10., desc='training')):
+        for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
             loss = model(x)
             std = 0
             if torch.cuda.device_count() > 1:
                 loss = loss.mean()
-                std = loss.std().item()
+                std = loss.std()
             
             
             loss.backward()
@@ -156,7 +156,7 @@ def train(
             optim.step()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.zero_grad()
-            print(f"loss={loss.item():.4f} | {std=:.4f}")
+            print(f"loss={loss.item():.4f} | {std.item()=:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
             #     model.eval()
