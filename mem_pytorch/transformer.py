@@ -257,7 +257,7 @@ class TritonTransformer(nn.Module):
         # go through layers
 
         for attn, ff in self.layers:
-            x = attn(x, mask = mask, use_triton = use_triton)
+            x = attn(x, use_cuda_kernel = True)
             x = ff(x, use_triton = use_triton)
 
         x = layernorm(x, self.norm.weight, use_triton = use_triton, stable = True)
