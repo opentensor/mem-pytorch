@@ -135,39 +135,38 @@ def relu_squared_activation(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel
 
 
-def matmul(a, b, activation=""):
-    # checks constraints
-    assert a.shape[1] == b.shape[0], "incompatible dimensions"
-    assert a.is_contiguous(), "matrix A must be contiguous"
-    assert b.is_contiguous(), "matrix B must be contiguous"
-    M, K = a.shape
-    K, N = b.shape
-    assert (
-        K % 32 == 0
-    ), "We don't check memory-out-of-bounds with K so K must be divisible by BLOCK_SIZE_K"
-    # allocates output
-    c = torch.empty((M, N), device=a.device, dtype=a.dtype)
-    # 1D launch kernel where each block gets its own program.
+def triton_bmm(x, y, activation = None):
+    B, M, K = x.shape
+
+    if y.ndim == 2:
+        y = y.unsqueeze(0).expand(B, -1, -1)
+
+    _, K, N = y.shape
+    assert (K % 32 == 0), "K must be divisible by 32"
+
+    o = torch.empty((B, M, N), device = x.device, dtype = x.dtype)
+
     grid = lambda META: (
-        triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
+        B, triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
+
     matmul_kernel[grid](
-        a, b, c,
+        x, y, o,
         M, N, K,
-        a.stride(0), a.stride(1),
-        b.stride(0), b.stride(1),
-        c.stride(0), c.stride(1),
-        ACTIVATION=activation,
+        x.stride(0), x.stride(1), x.stride(2),
+        y.stride(0), y.stride(1), y.stride(2),
+        o.stride(0), o.stride(1), o.stride(2),
+        ACTIVATION = activation
     )
-    return c
+    return o
 
 
 class _relu_squared(torch.autograd.Function):
     @classmethod
     def forward(self, ctx, x, w):
-        x = torch.squeeze(x) # added squeeze to remove batch dimension
+        # x = torch.squeeze(x) # added squeeze to remove batch dimension
         # pdb.set_trace()
-        o = matmul(x, w, activation = leaky_relu)
+        o = triton_bmm(x, w, activation = leaky_relu)
         if x.requires_grad:
             ctx.save_for_backward(x, w, o)
         return o
@@ -176,8 +175,8 @@ class _relu_squared(torch.autograd.Function):
     def backward(self, ctx, dy):
         x, w, o = ctx.saved_tensors
         dy = torch.sqrt(o) * 2 * dy
-        dx = matmul(dy, w.t())
-        dw = matmul(x.transpose(-1, -2), dy)
+        dx = triton_bmm(dy, w.t())
+        dw = triton_bmm(x.transpose(-1, -2), dy)
         return dx, dw
 
 triton_relu_squared = _relu_squared.apply
