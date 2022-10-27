@@ -53,7 +53,7 @@ def matmul_kernel(
     # Map program ids `pid` to the block of C it should compute.
     # This is done in a grouped ordering to promote L2 data reuse
     # See above `L2 Cache Optimizations` section for details
-    
+
     # program ID
     pid = tl.program_id(axis=0)
     # number of program ids along the M axis
@@ -167,7 +167,7 @@ class _relu_squared(torch.autograd.Function):
     def forward(self, ctx, x, w):
         x = torch.squeeze(x) # added squeeze to remove batch dimension
         # pdb.set_trace()
-        o = matmul(x, w, activation = relu_squared_activation)
+        o = matmul(x, w, activation = leaky_relu)
         if x.requires_grad:
             ctx.save_for_backward(x, w, o)
         return o
