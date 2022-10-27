@@ -173,7 +173,7 @@ def triton_bmm(x, y, activation = None):
     o = torch.empty((B, M, N), device = x.device, dtype = x.dtype)
 
     grid = lambda META: (
-        B, triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
+        triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
 
     matmul_kernel[grid](
