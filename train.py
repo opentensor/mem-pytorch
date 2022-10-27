@@ -110,24 +110,31 @@ def train(
         os.makedirs(save_dir)
     if not os.path.exists(f"{save_dir}/{model_name}"):
         os.makedirs(f"{save_dir}/{model_name}")
+
+    scaler = torch.cuda.amp.GradScaler()
     optim = torch.optim.Adam(model.parameters(), lr=hp.learning_rate)
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
         for i, batch in enumerate(tqdm(train_dataloader, total=100_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
-            loss = model(x)
-            std = 0
-            if torch.cuda.device_count() > 1:
-                loss = loss.mean()
-                std = loss.std().item()
+            with torch.cuda.amp.autocast():
+                loss = model(x)
+                std = 0
+                if torch.cuda.device_count() > 1:
+                    loss = loss.mean()
+                    std = loss.std().item()
             
+            scaler.scale(loss).backward()
+            scaler.step(optim)
+            scaler.update()
+
             print(f"loss={loss.item():.4f} | {std=:.4f}")
-            loss.backward()
+            # loss.backward()
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-            optim.step()
-            optim.zero_grad()
+            # optim.step()
+            # optim.zero_grad()
 
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
