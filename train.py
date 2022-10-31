@@ -14,6 +14,7 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 from mem_pytorch import TritonTransformer
+from itertools import chain
 
 from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
