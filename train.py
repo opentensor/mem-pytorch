@@ -1,4 +1,5 @@
 import os
+import pdb
 from typing import Sequence
 import bittensor as bt 
 import hydra
@@ -81,6 +82,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
     def group_texts(examples):
         # Concatenate all texts.
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        pdb.set_trace()
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= seq_len:
             total_length = (
