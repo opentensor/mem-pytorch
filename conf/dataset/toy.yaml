@@ -1,6 +1,6 @@
 name: toy
 
-data_type: "regular" #['streaming', 'regular']
+data_type: "streaming" #['streaming', 'regular']
 constituent_sets:
   - "the_pile"
   # - "c4"
