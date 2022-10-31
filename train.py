@@ -94,7 +94,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
             ]
             for k, t in concatenated_examples.items()
         }
-        result["labels"] = result["input_ids"].copy()
+        # result["labels"] = result["input_ids"].copy()
         return result
 
     def encode(examples):
