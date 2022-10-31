@@ -54,9 +54,9 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
 
 def create_tokenizer(name: str = "gpt2"):
-    # tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
-    # tokenizer.pad_token = "[PAD]"
-    tokenizer = bt.tokenizer()
+    tokenizer = AutoTokenizer.from_pretrained(name, use_fast=True, mlm=False)
+    tokenizer.pad_token = "[PAD]"
+    # tokenizer = bt.tokenizer()
 
     return tokenizer
 
@@ -77,15 +77,34 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
 
     tokenizer = create_tokenizer()
 
+    def group_texts(examples):
+        # Concatenate all texts.
+        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        total_length = len(concatenated_examples[list(examples.keys())[0]])
+        if total_length >= seq_len:
+            total_length = (
+                total_length // seq_len
+            ) * seq_len
+        # Split by chunks of max_len.
+        result = {
+            k: [
+                t[i : i + seq_len]
+                for i in range(0, total_length, seq_len)
+            ]
+            for k, t in concatenated_examples.items()
+        }
+        result["labels"] = result["input_ids"].copy()
+        return result
+
     def encode(examples):
         return tokenizer(
             examples["text"], padding="max_length", truncation=True, max_length=seq_len
         )
 
     data_train = train_dataset.map(
-        encode, batched=True, remove_columns=["text", "meta"]
+        group_texts, batched=True, remove_columns=["text", "meta"]
     )
-    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+    data_val = val_dataset.map(group_texts, batched=True, remove_columns=["text", "meta"])
 
     # TODO: cfg
     seed, buffer_size = 42, 10_000
