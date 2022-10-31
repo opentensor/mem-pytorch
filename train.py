@@ -103,14 +103,14 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
         )
 
     data_train = train_dataset.map(
-        group_texts, batched=True, remove_columns=["text", "meta"]
+        group_texts, batched=False, remove_columns=["text", "meta"]
     )
     data_val = val_dataset.map(group_texts, batched=True, remove_columns=["text", "meta"])
 
     # TODO: cfg
     seed, buffer_size = 42, 10_000
-    data_train = data_train.shuffle(seed, buffer_size=buffer_size)
-    data_val = data_val.shuffle(seed, buffer_size=buffer_size)
+    # data_train = data_train.shuffle(seed, buffer_size=buffer_size)
+    # data_val = data_val.shuffle(seed, buffer_size=buffer_size)
 
     return data_train, data_val, tokenizer
 
