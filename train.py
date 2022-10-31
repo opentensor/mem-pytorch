@@ -81,9 +81,11 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
 
     def group_texts(examples):
         # Concatenate all texts.
-        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        # concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()} # BUG: this makes them characters. I think we quashed this bug before, but we need to concat examples to prevent overfit or collapse. - carro
+        concatenated_examples = examples["text"]
+        total_length = len(concatenated_examples)
         pdb.set_trace()
-        total_length = len(concatenated_examples[list(examples.keys())[0]])
+        # total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= seq_len:
             total_length = (
                 total_length // seq_len
