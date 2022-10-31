@@ -1,0 +1,6 @@
+name: 1.3b
+
+depth: 12
+heads: 12
+dim: 1024
+sequence_length: 8192

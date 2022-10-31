@@ -156,7 +156,7 @@ def train(
             optim.step()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optim.zero_grad()
-            print(f"loss={loss.item():=^5} | {std.item()=:.4f}")
+            print(f"loss={loss.item():.4f} | {std.item()=:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
             #     model.eval()
@@ -198,7 +198,7 @@ def train(
 
             if i != 0 and i % hp.save_every == 0:
                 if torch.cuda.current_device() == 0:
-                    torch.save(model.state_dict(), f"{save_dir}/{model_name}_{i}.pt")
+                    torch.save(model.module.state_dict(), f"{save_dir}/{model_name}_{i}.pt")
                     print(f"saved model to {model_name}_{i}.pt")
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
