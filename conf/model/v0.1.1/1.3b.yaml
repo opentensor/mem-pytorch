@@ -1,0 +1,6 @@
+name: 250m
+
+depth: 24
+heads: 24
+dim: 2048
+sequence_length: 16_384
