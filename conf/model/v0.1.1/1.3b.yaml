@@ -1,6 +1,6 @@
-name: 250m
+name: 1.3b
 
 depth: 24
 heads: 24
 dim: 2048
-sequence_length: 16_384
+sequence_length: 4096
