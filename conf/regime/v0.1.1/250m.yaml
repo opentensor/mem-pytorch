@@ -6,4 +6,4 @@ generate_every: 1000
 generate_length: 256
 
 save_every: 10000
-learning_rate: 2e-5
+learning_rate: 1
