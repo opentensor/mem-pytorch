@@ -82,7 +82,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
 
     def encode(examples):
         return tokenizer(
-            examples["text"], truncation=True, max_length=seq_len
+            examples["text"], truncation=False, max_length=seq_len
         )
 
     data_train = train_dataset.map(
@@ -91,7 +91,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
     data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
     # TODO: cfg
-    seed, buffer_size = 12976371827472801, 10_000
+    seed, buffer_size = 12976371472801, 10_000
     data_train = data_train.shuffle(seed, buffer_size=buffer_size)
     data_val = data_val.shuffle(seed, buffer_size=buffer_size)
 
