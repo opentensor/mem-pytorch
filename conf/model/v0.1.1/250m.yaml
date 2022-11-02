@@ -3,4 +3,4 @@ name: 250m
 depth: 12
 heads: 12
 dim: 1024
-sequence_length: 16_384
+sequence_length: 32_768
