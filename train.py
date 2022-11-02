@@ -81,8 +81,9 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
 
 
     def encode(examples):
+        example_length = len(examples["text"])
         return tokenizer(
-            examples["text"], truncation=False, max_length=seq_len
+            examples["text"], truncation=True, max_length=example_length
         )
 
     data_train = train_dataset.map(
@@ -136,9 +137,9 @@ def create_regular_dataset(set_names: Sequence[str], seq_len: int):
         )
 
     data_train = train_dataset.map(
-        group_texts, batched=True, remove_columns=["text", "meta"]
+        encode, batched=True, remove_columns=["text", "meta"]
     )
-    data_val = val_dataset.map(group_texts, batched=True, remove_columns=["text", "meta"])
+    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
     return data_train, data_val, tokenizer 
 
@@ -166,6 +167,7 @@ def train(
 
         for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
+            # attention_mask = batch['attention_mask'].to(device)
             loss = model(x)
             std = 0
             if torch.cuda.device_count() > 1:
