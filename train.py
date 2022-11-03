@@ -92,7 +92,6 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int, accelerator
     with accelerator.main_process_first():
         data_train = train_dataset.map(
             encode,
-            num_proc=accelerator.num_processes/4,
             batched=True, 
             remove_columns=["text", "meta"]
         )
