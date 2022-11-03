@@ -51,5 +51,7 @@ inputs = tokenizer.encode(x)
 inputs = torch.tensor(inputs).unsqueeze(0).to(device)
 
 outputs = model.generate(inputs, seq_len=seq_len)
+print(outputs)
 
-print(tokenizer.decode(outputs))
+decoded = tokenizer.decode(outputs.tolist()[0])
+print(decoded)
