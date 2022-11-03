@@ -85,9 +85,8 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
 
 
     def encode(examples):
-        example_length = len(examples["text"])
         return tokenizer(
-            examples["text"], truncation=True, max_length=example_length
+            examples["text"], truncation=True, max_length=1024
         )
 
     data_train = train_dataset.map(
