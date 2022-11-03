@@ -262,12 +262,12 @@ def main(cfg: DictConfig):
     train_dataloader = DataLoader(
         data_train,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-        batch_size=1,
+        batch_size=per_device_batch_size,
     )
     eval_dataloader = DataLoader(
         data_val,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-        batch_size=1,
+        batch_size=per_device_batch_size,
     )    
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
