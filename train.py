@@ -180,7 +180,8 @@ def train(
             # attention_mask = batch['attention_mask'].to(device)
 
             with accelerator.accumulate(model):
-                loss = model(x)
+                outputs = model(x)
+                loss = outputs.loss
                 std = 0
                 if accelerator is None:
                     loss = loss.mean()
@@ -258,6 +259,7 @@ def main(cfg: DictConfig):
         )
 
     per_device_batch_size = cfg.regime.batch_size
+    
     train_dataloader = DataLoader(
         data_train,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
