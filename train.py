@@ -266,7 +266,7 @@ def main(cfg: DictConfig):
             cfg.dataset.constituent_sets, cfg.model.sequence_length
         )
 
-    per_device_batch_size = cfg.regime.batch_size
+    per_device_batch_size = cfg.regime.batch_size // torch.cuda.device_count()
     
     train_dataloader = DataLoader(
         data_train,
