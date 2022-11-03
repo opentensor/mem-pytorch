@@ -1,6 +1,6 @@
 defaults:
-  - model: v0.1.1/1.3b
+  - model: v0.1.1/250m
   - dataset: toy
-  - regime: v0.1.1/1.3b
+  - regime: v0.1.1/250m
 
 save_dir: "mem-1.3b/"
