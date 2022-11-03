@@ -192,7 +192,8 @@ def train(
 
             optim.step()
             lr_scheduler.step()
-            torch.nn.clip_grad_norm_(model.parameters(), 0.5)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+
             optim.zero_grad()
             # if the main gpu torch
             if torch.cuda.is_main_process():
