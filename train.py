@@ -87,7 +87,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int, accelerator
 
     def encode(examples):
         return tokenizer(
-            examples["text"], truncation=False, max_length=seq_len
+            examples["text"], truncation=False, max_length=len(examples['text'])
         )
     with accelerator.main_process_first():
         data_train = train_dataset.map(
@@ -258,12 +258,12 @@ def main(cfg: DictConfig):
     train_dataloader = DataLoader(
         data_train,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-        batch_size=per_device_batch_size,
+        batch_size=4,
     )
     eval_dataloader = DataLoader(
         data_val,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-        batch_size=per_device_batch_size,
+        batch_size=4,
     )    
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
