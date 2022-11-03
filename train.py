@@ -110,12 +110,14 @@ def create_regular_dataset(set_names: Sequence[str], seq_len: int):
     train_sets = []
     val_sets = []  
 
-    for set_name in set_names:
-        train_sets.append(load_dataset(set_name, split="train"))
-        val_sets.append(load_dataset(set_name, split="validation"))
-    train_dataset = interleave_datasets(train_sets)
-    val_dataset = interleave_datasets(val_sets)
+    # for set_name in set_names:
+    #     train_sets.append(load_dataset(set_name, split="train"))
+    #     val_sets.append(load_dataset(set_name, split="validation"))
+    # train_dataset = interleave_datasets(train_sets)
+    # val_dataset = interleave_datasets(val_sets)
 
+    train_dataset = load_dataset(set_names[0], split="train")
+    val_dataset = load_dataset(set_names[0], split="validation")
     tokenizer = create_tokenizer()
 
     def group_texts(examples):
