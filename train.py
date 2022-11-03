@@ -196,7 +196,7 @@ def train(
 
             optim.zero_grad()
             # if the main gpu torch
-            if torch.cuda.is_main_process():
+            if torch.cuda.current_device() == 0:
                 print(f"loss={loss:.4f} | std={std:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
