@@ -191,7 +191,8 @@ def train(
 
 
                 optim.step()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(model.parameters(), 0.5)
                 optim.zero_grad()
             print(f"loss={loss:.4f} | std={std:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
@@ -257,6 +258,7 @@ def main(cfg: DictConfig):
         )
 
     per_device_batch_size = cfg.regime.batch_size // accelerator.num_processes
+
     train_dataloader = DataLoader(
         data_train,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
@@ -293,7 +295,7 @@ def main(cfg: DictConfig):
         num_training_steps=max_train_steps * cfg.regime.gradient_accumulate_every, # max_train_steps * gradient_accumulation_steps
     )
     if cfg.regime.accelerate:
-        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(model, optimizer, train_dataloader, lr_scheduler)
+        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(model, optimizer, train_dataloader, lr_scheduler, split_batches=True)
 
 
     train(
