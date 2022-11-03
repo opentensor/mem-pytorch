@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 from accelerate import Accelerator
 from transformers import (
     AutoTokenizer,
+    get_scheduler,
     DataCollatorForLanguageModeling,
 )
 from mem_pytorch import TritonTransformer
@@ -67,7 +68,7 @@ def create_tokenizer(name: str = "gpt2"):
     return tokenizer
 
 
-def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
+def create_streaming_dataset(set_names: Sequence[str], seq_len: int, accelerator: Accelerator):
 
     train_sets = []
     val_sets = []
@@ -88,11 +89,14 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int):
         return tokenizer(
             examples["text"], truncation=True, max_length=1024
         )
-
-    data_train = train_dataset.map(
-        encode, batched=True, remove_columns=["text", "meta"]
-    )
-    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+    with accelerator.main_process_first():
+        data_train = train_dataset.map(
+            encode,
+            num_proc=accelerator.num_processes/4,
+            batched=True, 
+            remove_columns=["text", "meta"]
+        )
+        data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
     # TODO: cfg
     seed, buffer_size = 12976371472801, seq_len
@@ -154,6 +158,7 @@ def train(
     tokenizer,
     data_val,
     optim,
+    lr_scheduler, 
     accelerator: Accelerator,
     hp: DictConfig,
     model_name: str,
@@ -169,7 +174,6 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        model.train()
         for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device) if accelerator is None else batch['input_ids']
             # attention_mask = batch['attention_mask'].to(device)
@@ -206,15 +210,9 @@ def train(
         
             if i != 0 and i % hp.generate_every == 0:
                 # if statement to  check if the device is cuda:0
-                if torch.cuda.current_device() == 0:
-
-                    if torch.cuda.device_count() > 1:
-                        gen_model = model.module
-                    else:
-                        gen_model = model
-
+                if accelerator.is_main_process:
+                    model.eval()
                     
-                    gen_model.eval()
                     ## There has to be a better way to do this?
                     inp = [x for x in data_val.take(1)][0]["input_ids"]
                     prime = tokenizer.decode(inp)
@@ -222,9 +220,10 @@ def train(
                     inp = torch.tensor(inp).to(device)
 
 
-                    sample = gen_model.generate(inp[None, ...], hp.generate_length)
+                    sample = model.generate(inp[None, ...], hp.generate_length)
                     output_str = tokenizer.decode(sample[0])
                     print(output_str)
+                    model.train()
 
             if i != 0 and i % hp.save_every == 0:
                 if torch.cuda.current_device() == 0:
@@ -235,7 +234,7 @@ def train(
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
-    accelerator = None
+    accelerator = Accelerator()
 
     model = create_model(
         dim=cfg.model.dim,
@@ -247,7 +246,7 @@ def main(cfg: DictConfig):
 
     if cfg.dataset.data_type == "streaming":
         data_train, data_val, tokenizer = create_streaming_dataset(
-            set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length
+            set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length, accelerator=accelerator
         )
     else: 
         data_train, data_val, tokenizer = create_regular_dataset(
@@ -266,9 +265,18 @@ def main(cfg: DictConfig):
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.regime.learning_rate)
     
+    num_warmup_steps = 1000
+    max_train_steps = 0
+
+    lr_scheduler = get_scheduler(
+        name="linear", # ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
+        optimizer=optimizer,
+        num_warmup_steps=num_warmup_steps * cfg.regime.gradient_accumulate_every, # num_warmup_steps * gradient_accumulation_steps
+        num_training_steps=max_train_steps * cfg.regime.gradient_accumulate_every, # max_train_steps * gradient_accumulation_steps
+    )
     if cfg.regime.accelerate:
-        accelerator = Accelerator()
-        model, optimizer, train_dataloader = accelerator.prepare(model, optimizer, train_dataloader)
+        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(model, optimizer, train_dataloader, lr_scheduler)
+
 
     train(
         model=model,
@@ -277,6 +285,7 @@ def main(cfg: DictConfig):
         tokenizer=tokenizer,
         data_val=data_val,
         optim=optimizer,
+        lr_scheduler=lr_scheduler,
         accelerator=accelerator,
         hp=cfg.regime,
         model_name=cfg.model.name,
