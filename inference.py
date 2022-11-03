@@ -44,10 +44,11 @@ model = create_model(2048, 24, 24, 16_384)
 
 x = input("Enter a sentence: ")
 
+seq_len = 1024
 tokenizer = bt.tokenizer()
 
 inputs = tokenizer.encode(x)
 
-outputs = model.generate(inputs)
+outputs = model.generate(inputs, seq_len=seq_len)
 
 print(tokenizer.decode(outputs))
