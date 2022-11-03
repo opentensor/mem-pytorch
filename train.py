@@ -293,7 +293,7 @@ def main(cfg: DictConfig):
         num_training_steps=max_train_steps * cfg.regime.gradient_accumulate_every, # max_train_steps * gradient_accumulation_steps
     )
     if cfg.regime.accelerate:
-        model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(model, optimizer, train_dataloader, lr_scheduler)
+        model, optimizer, lr_scheduler = accelerator.prepare(model, optimizer, lr_scheduler)
 
 
     train(
