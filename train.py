@@ -176,26 +176,27 @@ def train(
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
         for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
-            x = batch['input_ids'].to(device) if accelerator is None else batch['input_ids']
+            x = batch['input_ids'].to(device)
             # attention_mask = batch['attention_mask'].to(device)
 
-            with accelerator.accumulate(model):
-                outputs = model(x)
-                loss = outputs['loss']
-                std = 0
-                if accelerator is None:
-                    loss = loss.mean()
-                    std = loss.std()
-                    loss.backward()
-                else:
-                    accelerator.backward(loss)
+            # with accelerator.accumulate(model):
+            loss = model(x)
+            std = 0
+            # if accelerator is None:
+            loss = loss.mean()
+            std = loss.std()
+            loss.backward()
+            # else:
+            #     accelerator.backward(loss)
 
 
-                optim.step()
-                if accelerator.sync_gradients:
-                    accelerator.clip_grad_norm_(model.parameters(), 0.5)
-                optim.zero_grad()
-            print(f"loss={loss:.4f} | std={std:.4f}")
+            optim.step()
+            lr_scheduler.step()
+            torch.nn.clip_grad_norm_(model.parameters(), 0.5)
+            optim.zero_grad()
+            # if the main gpu torch
+            if torch.cuda.is_main_process():
+                print(f"loss={loss:.4f} | std={std:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
             #     model.eval()

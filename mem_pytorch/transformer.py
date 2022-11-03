@@ -248,6 +248,5 @@ class TritonTransformer(nn.Module):
             return logits
 
         loss = cross_entropy_fn(logits, labels, ignore_index = 0, use_triton = False)
-        outputs = {'loss': loss, 'logits': logits}
 
-        return outputs
+        return loss
