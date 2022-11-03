@@ -40,7 +40,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
 # load in model
 
-model = create_model(2048, 24, 24, 32_768)
+model = create_model(2048, 24, 24, 16_384)
 
 x = input("Enter a sentence: ")
 
