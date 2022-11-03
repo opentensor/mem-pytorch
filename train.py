@@ -181,7 +181,7 @@ def train(
 
             with accelerator.accumulate(model):
                 outputs = model(x)
-                loss = outputs.loss
+                loss = outputs['loss']
                 std = 0
                 if accelerator is None:
                     loss = loss.mean()
