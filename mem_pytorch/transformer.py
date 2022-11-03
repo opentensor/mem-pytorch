@@ -248,6 +248,6 @@ class TritonTransformer(nn.Module):
             return logits
 
         loss = cross_entropy_fn(logits, labels, ignore_index = 0, use_triton = False)
-        outputs = torch.tensor({'loss': loss, 'logits': logits})
+        outputs = torch.tensor(tuple({'loss': loss, 'logits': logits}))
 
         return outputs
