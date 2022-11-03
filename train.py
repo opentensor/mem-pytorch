@@ -257,8 +257,7 @@ def main(cfg: DictConfig):
             cfg.dataset.constituent_sets, cfg.model.sequence_length
         )
 
-    per_device_batch_size = cfg.regime.batch_size // accelerator.num_processes
-
+    per_device_batch_size = cfg.regime.batch_size
     train_dataloader = DataLoader(
         data_train,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
