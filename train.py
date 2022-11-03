@@ -176,19 +176,21 @@ def train(
         for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
             x = batch['input_ids'].to(device) if accelerator is None else batch['input_ids']
             # attention_mask = batch['attention_mask'].to(device)
-            loss = model(x)
-            std = 0
-            if accelerator is None:
-                loss = loss.mean()
-                std = loss.std()
-                loss.backward()
-            else:
-                accelerator.backward(loss)
+
+            with accelerator.accumulate(model):
+                loss = model(x)
+                std = 0
+                if accelerator is None:
+                    loss = loss.mean()
+                    std = loss.std()
+                    loss.backward()
+                else:
+                    accelerator.backward(loss)
 
 
-            optim.step()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-            optim.zero_grad()
+                optim.step()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                optim.zero_grad()
             print(f"loss={loss.item():.4f} | {std.item()=:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
@@ -260,9 +262,22 @@ def main(cfg: DictConfig):
         data_val,
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
         batch_size=cfg.regime.batch_size,
-    )
+    )    
+    # Optimizer
+    # Split weights in two groups, one with weight decay and the other not.
+    no_decay = ["bias", "layer_norm.weight"]
+    optimizer_grouped_parameters = [
+        {
+            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "weight_decay": 0.0
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "weight_decay": 0.0,
+        },
+    ]
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.regime.learning_rate)
+    optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=cfg.regime.learning_rate)
     
     num_warmup_steps = 1000
     max_train_steps = 0
