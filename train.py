@@ -217,20 +217,26 @@ def train(
         
             if i != 0 and i % hp.generate_every == 0:
                 # if statement to  check if the device is cuda:0
-                if accelerator.is_main_process:
-                    model.eval()
-                    
-                    ## There has to be a better way to do this?
-                    inp = [x for x in data_val.take(1)][0]["input_ids"]
-                    prime = tokenizer.decode(inp)
-                    print(f"\n\n {prime} \n\n {'-' * 80} \n")
-                    inp = torch.tensor(inp).to(device)
+                # if accelerator.is_main_process:
+                    # model.eval()
+                if torch.cuda.device_count() > 1:
+                    pre_model = model.module
+                else:
+                    pre_model = model
+                    print("generating...")
+                    # generate
+                pre_model.eval()
+                ## There has to be a better way to do this?
+                inp = [x for x in data_val.take(1)][0]["input_ids"]
+                prime = tokenizer.decode(inp)
+                print(f"\n\n {prime} \n\n {'-' * 80} \n")
+                inp = torch.tensor(inp).to(device)
 
 
-                    sample = model.generate(inp[None, ...], hp.generate_length)
-                    output_str = tokenizer.decode(sample[0])
-                    print(output_str)
-                    model.train()
+                sample = pre_model.generate(inp[None, ...], hp.generate_length)
+                output_str = tokenizer.decode(sample[0])
+                print(output_str)
+                model.train()
 
             if i != 0 and i % hp.save_every == 0:
                 if torch.cuda.current_device() == 0:
