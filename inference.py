@@ -48,6 +48,7 @@ seq_len = 1024
 tokenizer = bt.tokenizer()
 
 inputs = tokenizer.encode(x)
+inputs = torch.tensor(inputs).unsqueeze(0).to(device)
 
 outputs = model.generate(inputs, seq_len=seq_len)
 
