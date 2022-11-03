@@ -4,6 +4,7 @@ gradient_accumulate_every: 4
 validate_every: 50
 generate_every: 1000
 generate_length: 256
+accelerate: True
 
 save_every: 10000
 learning_rate: 3e-4

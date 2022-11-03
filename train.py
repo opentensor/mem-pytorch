@@ -10,6 +10,8 @@ from datasets import load_dataset, interleave_datasets
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+
+from accelerate import Accelerator
 from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
@@ -24,7 +26,7 @@ from mem_pytorch.autoregressive_wrapper import (
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Module:
+def create_model(dim: int, depth: int, heads: int, seq_len: int, accelerate: bool) -> torch.nn.Module:
     model = TritonTransformer(
         num_tokens=50257,
         dim=dim,
@@ -40,12 +42,14 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
     )
 
     model = AutoregressiveWrapper(model)
+    
 
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 1 and not accelerate:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model, device_ids=[0,1,2,3,4,5,6,7])
 
-    model.to(device)
+    if not accelerate:
+        model = model.to(device)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
@@ -150,6 +154,8 @@ def train(
     eval_dataloader,
     tokenizer,
     data_val,
+    optim,
+    accelerator: Accelerator,
     hp: DictConfig,
     model_name: str,
     save_dir: str,
@@ -161,21 +167,22 @@ def train(
         os.makedirs(f"{save_dir}/{model_name}")
 
     scaler = torch.cuda.amp.GradScaler()
-    optim = torch.optim.Adam(model.parameters(), lr=hp.learning_rate)
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
+        model.train()
         for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
-            x = batch['input_ids'].to(device)
+            x = batch['input_ids'].to(device) if accelerator is None else batch['input_ids']
             # attention_mask = batch['attention_mask'].to(device)
             loss = model(x)
             std = 0
-            if torch.cuda.device_count() > 1:
+            if accelerator is None:
                 loss = loss.mean()
                 std = loss.std()
-            
-            
-            loss.backward()
+                loss.backward()
+            else:
+                accelerator.backward(loss)
+
 
             optim.step()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -228,11 +235,15 @@ def train(
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
+
+    accelerator = None
+
     model = create_model(
         dim=cfg.model.dim,
         depth=cfg.model.depth,
         heads=cfg.model.heads,
         seq_len=cfg.model.sequence_length,
+        accelerate=cfg.regime.accelerate,
     )
 
     if cfg.dataset.data_type == "streaming":
@@ -253,12 +264,21 @@ def main(cfg: DictConfig):
         collate_fn=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
         batch_size=cfg.regime.batch_size,
     )
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.regime.learning_rate)
+    
+    if cfg.regime.accelerate:
+        accelerator = Accelerator()
+        model, optimizer, train_dataloader = accelerator.prepare(model, optimizer, train_dataloader)
+
     train(
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
         tokenizer=tokenizer,
         data_val=data_val,
+        optim=optimizer,
+        accelerator=accelerator,
         hp=cfg.regime,
         model_name=cfg.model.name,
         save_dir=cfg.save_dir,
