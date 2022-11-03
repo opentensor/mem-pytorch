@@ -193,7 +193,7 @@ def train(
                 optim.step()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
                 optim.zero_grad()
-            print(f"loss={loss.item():.4f} | {std.item()=:.4f}")
+            print(f"loss={loss:.4f} | std={std:.4f}")
             # if i != 0 and i % hp.validate_every == 0:
             #     # make sure we only do this on GPU:0
             #     model.eval()
