@@ -95,7 +95,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int, accelerator
             batched=False, 
             remove_columns=["text", "meta"]
         )
-        data_val = val_dataset.map(encode, batched=False, remove_columns=["text", "meta"])
+        data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
     # TODO: cfg
     seed, buffer_size = 12976371472801, 10_000
