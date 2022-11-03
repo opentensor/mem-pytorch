@@ -6,7 +6,7 @@ import numpy as np
 
 import bittensor as bt
 
-device = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Module:
     model = TritonTransformer(
