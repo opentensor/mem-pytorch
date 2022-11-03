@@ -25,7 +25,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
     model = AutoregressiveWrapper(model)
 
-    pre_model = torch.load("models/1.3b_390000.pt")
+    pre_model = torch.load("mem_1.3b/1.3b_10000.pt")
 
     model.load_state_dict(pre_model)
     model.to(device)
@@ -40,7 +40,7 @@ def create_model(dim: int, depth: int, heads: int, seq_len: int) -> torch.nn.Mod
 
 # load in model
 
-model = create_model(2048, 24, 24, 512)
+model = create_model(2048, 24, 24, 32_768)
 
 x = input("Enter a sentence: ")
 
