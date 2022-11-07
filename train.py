@@ -105,7 +105,7 @@ def create_streaming_dataset(set_names: Sequence[str], seq_len: int, accelerator
     return data_train, data_val, tokenizer
 
 
-def create_regular_dataset(set_names: Sequence[str], seq_len: int):
+def create_regular_dataset(set_names: Sequence[str], seq_len: int, subset: str):
     
     train_sets = []
     val_sets = []  
@@ -116,7 +116,7 @@ def create_regular_dataset(set_names: Sequence[str], seq_len: int):
     # train_dataset = interleave_datasets(train_sets)
     # val_dataset = interleave_datasets(val_sets)
 
-    train_dataset = load_dataset(set_names[0], split="train")
+    train_dataset = load_dataset(set_names[0], subset=subset split="train")
     val_dataset = load_dataset(set_names[0], split="validation")
     tokenizer = create_tokenizer()
 
@@ -263,7 +263,7 @@ def main(cfg: DictConfig):
         )
     else: 
         data_train, data_val, tokenizer = create_regular_dataset(
-            cfg.dataset.constituent_sets, cfg.model.sequence_length
+            cfg.dataset.constituent_sets, cfg.dataset.subset, cfg.model.sequence_length
         )
 
     per_device_batch_size = cfg.regime.batch_size 

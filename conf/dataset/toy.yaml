@@ -6,3 +6,5 @@ constituent_sets:
   # - "the_pile"
   # - "c4"
   # - "robertmyers/pile_v2"
+
+subsets: "wikitext-103-v1"
