@@ -145,9 +145,9 @@ def create_regular_dataset(set_names: Sequence[str], seq_len: int, subset: str):
         )
 
     data_train = train_dataset.map(
-        encode, batched=True, remove_columns=["text", "meta"]
+        encode, batched=True, remove_columns=["text"]
     )
-    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+    data_val = val_dataset.map(encode, batched=True, remove_columns=["text"])
 
     return data_train, data_val, tokenizer 
 
