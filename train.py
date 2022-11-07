@@ -263,7 +263,7 @@ def main(cfg: DictConfig):
         )
     else: 
         data_train, data_val, tokenizer = create_regular_dataset(
-            cfg.dataset.constituent_sets, cfg.dataset.subset, cfg.model.sequence_length
+            cfg.dataset.constituent_sets, cfg.model.sequence_length, cfg.dataset.subset,
         )
 
     per_device_batch_size = cfg.regime.batch_size 
