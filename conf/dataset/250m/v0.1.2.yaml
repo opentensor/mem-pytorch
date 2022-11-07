@@ -1,0 +1,7 @@
+name: v1.0.2
+
+data_type: "streaming" #['streaming', 'regular']
+constituent_sets:
+  - "the_pile"
+  # - "c4"
+  # - "robertmyers/pile_v2"
