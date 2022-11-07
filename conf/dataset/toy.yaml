@@ -1,7 +1,8 @@
 name: toy
 
-data_type: "streaming" #['streaming', 'regular']
+data_type: "regular" #['streaming', 'regular']
 constituent_sets:
-  - "the_pile"
+  - "wikitext"
+  # - "the_pile"
   # - "c4"
   # - "robertmyers/pile_v2"
