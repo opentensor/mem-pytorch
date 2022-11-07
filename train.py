@@ -141,7 +141,7 @@ def create_regular_dataset(set_names: Sequence[str], seq_len: int, subset: str):
 
     def encode(examples):
         return tokenizer(
-            examples["text"], padding="max_length", truncation=True, max_length=seq_len
+            examples["text"], truncation=True, max_length=len(examples['text'])
         )
 
     data_train = train_dataset.map(
