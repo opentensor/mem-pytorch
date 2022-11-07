@@ -298,7 +298,7 @@ def main(cfg: DictConfig):
     max_train_steps = 0
 
     lr_scheduler = get_scheduler(
-        name="linear", # ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
+        name="cosine", # ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
         optimizer=optimizer,
         num_warmup_steps=num_warmup_steps * cfg.regime.gradient_accumulate_every, # num_warmup_steps * gradient_accumulation_steps
         num_training_steps=max_train_steps * cfg.regime.gradient_accumulate_every, # max_train_steps * gradient_accumulation_steps
