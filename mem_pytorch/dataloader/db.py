@@ -60,7 +60,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
 
     # Read the Pile file.
     def encode(examples, idx):
-        dataset_name = examples["meta"][0]
+        dataset_name = examples["meta"]['pile_set_name']
         example_length = len(examples["text"])
         tokens = tokenizer(
             examples["text"], truncation=True, max_length=example_length
