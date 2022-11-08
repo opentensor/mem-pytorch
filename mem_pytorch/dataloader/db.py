@@ -113,7 +113,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
             for job in jobs:
                 dataset_name, compressed_tokens = job.get()
                 curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
-            curr.commit()
+            con.commit()
 
 
     # for i in range(0, len(train_dataset), chunk_size):
