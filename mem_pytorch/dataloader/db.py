@@ -76,7 +76,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
         curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
          
 
-    for idx, example in tqdm(enumerate(train_dataset)):
+    for idx, example in tqdm(enumerate(train_dataset), total=len(train_dataset)):
         encode(example, idx)
         if idx % 1000 == 0:
             logging.warning(f"Processed {idx} examples\n")
