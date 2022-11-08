@@ -179,7 +179,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     # Create the DB file.
     os.system(f"touch /home/ubuntu/mem-pytorch/db/{stage}.db")
 
-    with Pool(processes=os.cpu_count()) as p:
+    with Pool(processes=124) as p:
         p.starmap(db_loader_worker, args)
 
 
@@ -201,7 +201,7 @@ if __name__ == "__main__":
 
 
     logging.warning("Preparing data for val")
-    load_db("val", cmd.path, cmd.max_seq_len, cmd.tokenizer_path)
+    load_db("validation", cmd.path, cmd.max_seq_len, cmd.tokenizer_path)
     logging.warning(f"Finished at {datetime.now()}")
 
 
