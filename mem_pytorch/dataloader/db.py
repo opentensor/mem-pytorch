@@ -179,15 +179,15 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     # Create the DB file.
     os.system(f"touch /home/ubuntu/mem-pytorch/db/{stage}.db")
 
-    # with Pool(processes=os.cpu_count()) as p:
-    #     p.starmap(db_loader_worker, args)
+    with Pool(processes=os.cpu_count()) as p:
+        p.map(db_loader_worker, args)
 
     # pool = Pool()
     # pool.map(db_loader_worker, args)
     # pool.close()
 
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        executor.map(db_loader_worker, args)
+    # with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    #     executor.map(db_loader_worker, args)
 
 
 
