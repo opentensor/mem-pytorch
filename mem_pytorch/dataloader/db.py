@@ -47,7 +47,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
 
 
     # Create a DB file for the Pile file.
-    con = sqlite3.connect(f"/home/ubuntu/the_pile.db")
+    con = sqlite3.connect(f"/home/ubuntu/mem_pytorch/{split}.db")
     curr = con.cursor()
     # Create the DB table. This table will store the data. This table has three columns: idx, tokens, and dataset name.
     # idx is the index of the sentence in the Pile file. tokens is the tokenized sentence. dataset_name is the name of
@@ -79,7 +79,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
     for idx, example in tqdm(enumerate(train_dataset), total=len(train_dataset)):
         encode(example, idx)
         if idx % 1000 == 0:
-            logging.warning(f"Processed {idx} examples\n")
+            # logging.warning(f"Processed {idx} examples\n")
             con.commit()
     con.commit()
     con.close()
@@ -175,9 +175,9 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
         #     if x.endswith("db")
         # ]
 
-    os.remove(os.path.join("/home/ubuntu/the_pile.db"))
+    os.remove(os.path.join(f"/home/ubuntu/mem_pytorch/{stage}.db"))
     # Create the DB file.
-    os.system(f"touch /home/ubuntu/the_pile.db")
+    os.system(f"touch /home/ubuntu/mem_pytorch/{stage}.db")
 
     with Pool(processes=os.cpu_count()) as p:
         p.starmap(db_loader_worker, args)
