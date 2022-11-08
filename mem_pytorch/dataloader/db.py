@@ -174,6 +174,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
         #     if x.endswith("db")
         # ]
 
+    os.remove(os.path.join("/home/ubuntu/the_pile.db"))
 
     with Pool(processes=os.cpu_count()) as p:
         p.starmap(db_loader_worker, args)
