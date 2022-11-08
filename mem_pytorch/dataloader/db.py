@@ -61,9 +61,14 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
     # Read the Pile file.
     def encode(examples):
         dataset_name = examples["meta"][0]
-        tokens = tokenizer(
-            examples["text"], truncation=True, max_length=len(examples['text']), encoding="ASCII"
+        example_length = len(examples["text"])
+        tokens = tokenizer.encode(
+            examples["text"], truncation=True, max_length=example_length
         )
+        tokens = " ".join(str(x) for x in tokens)
+
+        # tokens = tokenizer.encode_as_ids(examples["text"])
+
         compressed_tokens = compressor.compress(
             tokens
         )
