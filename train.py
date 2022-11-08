@@ -145,11 +145,41 @@ def create_regular_dataset(set_names: Sequence[str], seq_len: int, subset: str):
         )
 
     data_train = train_dataset.map(
-        encode, batched=True, remove_columns=["text"]
+        encode, batched=True, remove_columns=["text", "meta"]
     )
-    data_val = val_dataset.map(encode, batched=True, remove_columns=["text"])
+    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
 
     return data_train, data_val, tokenizer 
+
+
+def create_chunked_dataset(set_names: Sequence[str], seq_len: int, subset: str):
+    '''
+    what if you just write a script to iterate over the dataset in chunks of size whatever, and save them to disk, then have another script that just iteratively loads them? 
+
+    '''
+    train_sets = []
+    val_sets = []
+
+    for set_name in set_names:
+        train_sets.append(load_dataset(set_name, split="train"))
+        val_sets.append(load_dataset(set_name, split="validation"))
+    train_dataset = interleave_datasets(train_sets)
+    val_dataset = interleave_datasets(val_sets)
+
+    tokenizer = create_tokenizer()
+
+    def encode(examples):
+        return tokenizer(
+            examples["text"], truncation=True, max_length=len(examples['text'])
+        )
+    
+    data_train = train_dataset.map(
+        encode, batched=True, remove_columns=["text", "meta"]
+    )
+    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
+
+    return data_train, data_val, tokenizer
+
 
 
 def train(

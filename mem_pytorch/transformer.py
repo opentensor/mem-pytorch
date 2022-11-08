@@ -10,7 +10,7 @@ from mem_pytorch.triton.softmax import softmax
 from mem_pytorch.triton.cross_entropy import cross_entropy_fn
 from mem_pytorch.triton.bmm import fused_relu_squared
 from mem_pytorch.triton.dropout import dropout_fn
-from mem_pytorch.triton.flash_attention import triton_flash_attention
+from mem_pytorch.triton.flash_attention import attention as triton_flash_attention
 
 from mem_pytorch.triton.utils import exists, default
 
