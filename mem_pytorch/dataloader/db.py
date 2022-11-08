@@ -65,7 +65,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
             examples["text"], truncation=True, max_length=len(examples['text'])
         )
         compressed_tokens = compressor.compress(
-            tokens.encode(encoding="ASCII")
+            tokens
         )
 
         curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
