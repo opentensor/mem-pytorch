@@ -46,7 +46,7 @@ def db_loader_worker(fpath, max_seq_len, tokenizer_path):
 
 
     # Create a DB file for the Pile file.
-    con = sqlite3.connect(f"{fpath}/{max_seq_len}.db")
+    con = sqlite3.connect(f"/home/ubuntu/the_pile.db")
     curr = con.cursor()
     # Create the DB table. This table will store the data. This table has three columns: idx, tokens, and dataset name.
     # idx is the index of the sentence in the Pile file. tokens is the tokenized sentence. dataset_name is the name of
