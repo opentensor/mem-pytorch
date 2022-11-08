@@ -85,7 +85,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
     # tokenizer = spm.SentencePieceProcessor()
     # tokenizer.load(tokenizer_path)
-    chunk_size = 10
+    chunk_size = 5
 
     # Create a DB file for the Pile file.
     con = sqlite3.connect(f"/home/ubuntu/mem-pytorch/db/{stage}.db")
@@ -106,6 +106,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     #  show an example of how to chunk the train_dataset into smaller chunks of size 1000
     jobs = []
     for i in range(0, len(train_dataset), chunk_size):
+        pdb.set_trace()
         text_chunk = train_dataset['text'][i:i+chunk_size]
         meta_chunk = train_dataset['meta'][i:i+chunk_size]
         # chunk = {'text': text_chunk, 'meta': meta_chunk}
