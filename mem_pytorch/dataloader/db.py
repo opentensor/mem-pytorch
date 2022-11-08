@@ -1,4 +1,5 @@
 import argparse
+import pdb
 import bittensor as bt
 import io
 import json
@@ -107,6 +108,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     for i in range(0, len(train_dataset), 1000):
         chunk = train_dataset[i:i+1000]
         for data in tqdm(chunk):
+            pdb.set_trace()
             jobs.append(pool.apply_async(db_loader_worker, args=(max_seq_len, data, path)))
         
         results = [job.get() for job in jobs]
