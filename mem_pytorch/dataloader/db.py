@@ -11,6 +11,7 @@ from datetime import datetime
 from multiprocessing import Pool
 from datasets import load_dataset
 
+import uuid
 from tqdm import tqdm
 
 from concurrent.futures import ThreadPoolExecutor
@@ -106,6 +107,15 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     #  show an example of how to chunk the train_dataset into smaller chunks of size 1000
     jobs = []
 
+    # function that generates a strig with the length of 8 that is random
+    def random_string(string_length=8):
+        """Returns a random string of length string_length."""
+        random = str(uuid.uuid4())
+        random = random.upper()
+        random = random.replace("-", "")
+        return random[0:string_length]
+
+
     for idx, data in tqdm(enumerate(train_dataset), total=len(train_dataset)):
         if idx % chunk_size != 0 and idx != len(train_dataset) - 1 and idx != 0:
             jobs.append(pool.apply_async(db_loader_worker, args=(idx, max_seq_len, data, path)))
@@ -113,7 +123,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
         else:
             for job in jobs:
                 index, dataset_name, compressed_tokens = job.get()
-                curr.execute(insert_cmd, (index, dataset_name, compressed_tokens))
+                curr.execute(insert_cmd, (random_string(), dataset_name, compressed_tokens))
             con.commit()
 
 
