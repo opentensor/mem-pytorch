@@ -10,6 +10,7 @@ from datetime import datetime
 from multiprocessing import Pool
 from datasets import load_dataset
 
+from tqdm import tqdm
 
 
 import sentencepiece as spm
@@ -56,10 +57,9 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
 
     dctx = zstandard.ZstdDecompressor()
     compressor = zstandard.ZstdCompressor()
-    idx = 0
-    lines = 0
+
     # Read the Pile file.
-    def encode(examples):
+    def encode(examples, idx):
         dataset_name = examples["meta"][0]
         example_length = len(examples["text"])
         tokens = tokenizer(
@@ -74,17 +74,13 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
         )
 
         curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
-        idx = idx + 1
-        lines = lines + 1
-
-        if lines % 10000 == 0:
-            logging.warning(f"Finished {lines} lines\n")
-            con.commit()
          
 
-    train_dataset.map(
-        encode, batched=True, remove_columns=["text", "meta"]
-    )
+    for idx, example in tqdm(enumerate(train_dataset)):
+        encode(example, idx)
+        if idx % 1000 == 0:
+            logging.warning(f"Processed {idx} examples\n")
+            con.commit()
     con.commit()
     con.close()
     logging.warning(f"Finished {fpath}\n")
