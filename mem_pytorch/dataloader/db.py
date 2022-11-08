@@ -105,29 +105,41 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
     #  show an example of how to chunk the train_dataset into smaller chunks of size 1000
     jobs = []
-    for i in range(0, len(train_dataset), chunk_size):
-        pdb.set_trace()
-        text_chunk = train_dataset['text'][i:i+chunk_size]
-        meta_chunk = train_dataset['meta'][i:i+chunk_size]
-        # chunk = {'text': text_chunk, 'meta': meta_chunk}
-        for data in tqdm(text_chunk):
-            pdb.set_trace()
+
+    for idx, data in tqdm(enumerate(train_dataset), total=len(train_dataset)):
+        if idx % chunk_size != 0:
             jobs.append(pool.apply_async(db_loader_worker, args=(max_seq_len, data, path)))
+        else:
+            for job in jobs:
+                dataset_name, compressed_tokens = job.get()
+                curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
+            curr.commit()
+
+
+    # for i in range(0, len(train_dataset), chunk_size):
+    # for data in tqdm(enumerate(train_dataset), total=len(train_dataset)):
+    #     pdb.set_trace()
+    #     # text_chunk = train_dataset['text'][i:i+chunk_size]
+    #     # meta_chunk = train_dataset['meta'][i:i+chunk_size]
+    #     # chunk = {'text': text_chunk, 'meta': meta_chunk}
+    #     for data in tqdm(text_chunk):
+    #         pdb.set_trace()
+    #         jobs.append(pool.apply_async(db_loader_worker, args=(max_seq_len, data, path)))
         
-        results = [job.get() for job in jobs]
+    #     results = [job.get() for job in jobs]
             
 
-        # #  create a list of tuples, where each tuple is a chunk of the train_dataset
-        # args = [(tokenizer, max_seq_len, chunk, compressor, path)]
-        # #  map the db_loader_worker function to the list of tuples
-        # #  this will return a list of tuples, where each tuple is a chunk of the train_dataset
-        # #  with the tokens encoded
-        # results = pool.starmap(db_loader_worker, args)
-        #  insert the results into the database
-        for result in results:
-            curr.execute(insert_cmd, (i, result[1], result[2]))
-        #  commit the changes to the database
-        con.commit()
+    #     # #  create a list of tuples, where each tuple is a chunk of the train_dataset
+    #     # args = [(tokenizer, max_seq_len, chunk, compressor, path)]
+    #     # #  map the db_loader_worker function to the list of tuples
+    #     # #  this will return a list of tuples, where each tuple is a chunk of the train_dataset
+    #     # #  with the tokens encoded
+    #     # results = pool.starmap(db_loader_worker, args)
+    #     #  insert the results into the database
+    #     for result in results:
+    #         curr.execute(insert_cmd, (i, result[1], result[2]))
+    #     #  commit the changes to the database
+    #     con.commit()
 
 
     
