@@ -115,10 +115,11 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
         random = random.replace("-", "")
         return random[0:string_length]
 
-
-    for idx, data in tqdm(enumerate(train_dataset), total=len(train_dataset)):
+    idx = 0
+    for data in tqdm(train_dataset, total=len(train_dataset)):
         if idx % chunk_size != 0 and idx != len(train_dataset) - 1 and idx != 0:
             jobs.append(pool.apply_async(db_loader_worker, args=(idx, max_seq_len, data, path)))
+            idx += 1
             # pdb.set_trace()
         else:
             for job in jobs:
