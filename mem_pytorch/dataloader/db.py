@@ -31,7 +31,7 @@ def get_args_parser():
 
 
 
-def db_loader_worker(max_seq_len, data, path):
+def db_loader_worker(idx, max_seq_len, data, path):
     """
      Reads a single Pile file and writes it to a DB. This worker is used in multiprocessing.
     :param fpath: Path to the Pile file.
@@ -55,7 +55,7 @@ def db_loader_worker(max_seq_len, data, path):
         compressed_tokens = compressor.compress(
             tokens.encode("ASCII")
         )
-        return (dataset_name, compressed_tokens)
+        return (idx, dataset_name, compressed_tokens)
         # curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
          
 
@@ -108,11 +108,11 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
     for idx, data in tqdm(enumerate(train_dataset), total=len(train_dataset)):
         if idx % chunk_size != 0:
-            jobs.append(pool.apply_async(db_loader_worker, args=(max_seq_len, data, path)))
+            jobs.append(pool.apply_async(db_loader_worker, args=(idx, max_seq_len, data, path)))
         else:
             for job in jobs:
-                dataset_name, compressed_tokens = job.get()
-                curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
+                index, dataset_name, compressed_tokens = job.get()
+                curr.execute(insert_cmd, (index, dataset_name, compressed_tokens))
             con.commit()
 
 
