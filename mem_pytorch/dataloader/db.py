@@ -122,6 +122,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
             # pdb.set_trace()
         else:
             for job in jobs:
+                pdb.set_trace()
                 index, dataset_name, compressed_tokens = job.get()
                 curr.execute(insert_cmd, (random_string(), dataset_name, compressed_tokens))
             con.commit()
