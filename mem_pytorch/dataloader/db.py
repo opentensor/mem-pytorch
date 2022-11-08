@@ -29,7 +29,7 @@ def get_args_parser():
 
 
 
-def db_loader_worker(fpath, max_seq_len, tokenizer_path):
+def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
     """
      Reads a single Pile file and writes it to a DB. This worker is used in multiprocessing.
     :param fpath: Path to the Pile file.
@@ -39,7 +39,7 @@ def db_loader_worker(fpath, max_seq_len, tokenizer_path):
 
     logging.warning(f"Starting {fpath}\n")
     tokenizer = bt.tokenizer()
-    train_dataset = load_dataset("the_pile", split="train")
+    train_dataset = load_dataset("the_pile", split=split)
 
     # tokenizer = spm.SentencePieceProcessor()
     # tokenizer.load(tokenizer_path)
@@ -60,7 +60,7 @@ def db_loader_worker(fpath, max_seq_len, tokenizer_path):
     lines = 0
     # Read the Pile file.
     def encode(examples):
-        dataset_name = examples["meta"]["pile_set_name"]
+        dataset_name = examples["meta"][0]
         tokens = tokenizer(
             examples["text"], truncation=True, max_length=len(examples['text'])
         )
@@ -133,7 +133,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     :param max_seq_len: Maximum sequence length.
     :param tokenizer_path: SentencePiece model path.
     """
-    args = [(path, max_seq_len, tokenizer_path)]
+    args = [(stage, path, max_seq_len, tokenizer_path)]
     # if stage == "train":
     #     # Arguments for multiprocessing workers.
     #     dpath = os.path.join(path, "train")
