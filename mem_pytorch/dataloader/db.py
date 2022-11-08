@@ -134,7 +134,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     :param max_seq_len: Maximum sequence length.
     :param tokenizer_path: SentencePiece model path.
     """
-    args = [(stage, path, max_seq_len, tokenizer_path)]
+    args = (stage, path, max_seq_len, tokenizer_path)
     # if stage == "train":
     #     # Arguments for multiprocessing workers.
     #     dpath = os.path.join(path, "train")
