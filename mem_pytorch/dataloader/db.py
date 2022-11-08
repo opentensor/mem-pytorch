@@ -133,46 +133,46 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     :param max_seq_len: Maximum sequence length.
     :param tokenizer_path: SentencePiece model path.
     """
-    args = None
-    if stage == "train":
-        # Arguments for multiprocessing workers.
-        dpath = os.path.join(path, "train")
-        paths = [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("zst")]
-        args = [(fpath, max_seq_len, tokenizer_path) for fpath in paths]
+    args = [(path, max_seq_len, tokenizer_path)]
+    # if stage == "train":
+    #     # Arguments for multiprocessing workers.
+    #     dpath = os.path.join(path, "train")
+    #     paths = [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("zst")]
+    #     args = [(fpath, max_seq_len, tokenizer_path) for fpath in paths]
+
+
+    #     # delete the old DB files.
+    #     [
+    #         os.remove(os.path.join(dpath, x))
+    #         for x in os.listdir(dpath)
+    #         if x.endswith("db")
+    #     ]
+    # elif stage == "val":
+    #     # Arguments for multiprocessing workers.
+    #     dpath = os.path.join(path, "val")
+    #     paths = [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("zst")]
+    #     args = [(fpath, max_seq_len, tokenizer_path) for fpath in paths]
+
+
+    #     # delete the old DB files.
+    #     [
+    #         os.remove(os.path.join(dpath, x))
+    #         for x in os.listdir(dpath)
+    #         if x.endswith("db")
+    #     ]
+    # elif stage == "test":
+    #     # Arguments for multiprocessing workers.
+    #     dpath = os.path.join(path, "test")
+    #     paths = [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("zst")]
+    #     args = [(fpath, max_seq_len, tokenizer_path) for fpath in paths]
 
 
         # delete the old DB files.
-        [
-            os.remove(os.path.join(dpath, x))
-            for x in os.listdir(dpath)
-            if x.endswith("db")
-        ]
-    elif stage == "val":
-        # Arguments for multiprocessing workers.
-        dpath = os.path.join(path, "val")
-        paths = [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("zst")]
-        args = [(fpath, max_seq_len, tokenizer_path) for fpath in paths]
-
-
-        # delete the old DB files.
-        [
-            os.remove(os.path.join(dpath, x))
-            for x in os.listdir(dpath)
-            if x.endswith("db")
-        ]
-    elif stage == "test":
-        # Arguments for multiprocessing workers.
-        dpath = os.path.join(path, "test")
-        paths = [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("zst")]
-        args = [(fpath, max_seq_len, tokenizer_path) for fpath in paths]
-
-
-        # delete the old DB files.
-        [
-            os.remove(os.path.join(dpath, x))
-            for x in os.listdir(dpath)
-            if x.endswith("db")
-        ]
+        # [
+        #     os.remove(os.path.join(dpath, x))
+        #     for x in os.listdir(dpath)
+        #     if x.endswith("db")
+        # ]
 
 
     with Pool(processes=os.cpu_count()) as p:
