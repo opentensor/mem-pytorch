@@ -109,6 +109,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     for idx, data in tqdm(enumerate(train_dataset), total=len(train_dataset)):
         if idx % chunk_size != 0:
             jobs.append(pool.apply_async(db_loader_worker, args=(idx, max_seq_len, data, path)))
+            pdb.set_trace()
         else:
             for job in jobs:
                 index, dataset_name, compressed_tokens = job.get()
