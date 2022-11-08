@@ -30,13 +30,14 @@ def get_args_parser():
 
 
 
-def db_loader_worker(tokenizer, max_seq_len, data, compressor, path):
+def db_loader_worker(max_seq_len, data, compressor, path):
     """
      Reads a single Pile file and writes it to a DB. This worker is used in multiprocessing.
     :param fpath: Path to the Pile file.
     :param max_seq_len: Maximum sequence length.
     :param tokenizer_path: SentencePiece model path.
     """
+    tokenizer = bt.tokenizer()
 
     # Read the Pile file.
     def encode(examples):
@@ -78,7 +79,6 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     # Create the DB file.
     os.system(f"touch /home/ubuntu/mem-pytorch/db/{stage}.db")
 
-    tokenizer = bt.tokenizer()
 
 
     # tokenizer = spm.SentencePieceProcessor()
@@ -107,7 +107,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     for i in range(0, len(train_dataset), 1000):
         chunk = train_dataset[i:i+1000]
         for data in tqdm(chunk):
-            jobs.append(pool.apply_async(db_loader_worker, args=(tokenizer, max_seq_len, data, compressor, path)))
+            jobs.append(pool.apply_async(db_loader_worker, args=(max_seq_len, data, compressor, path)))
         
         results = [job.get() for job in jobs]
             
