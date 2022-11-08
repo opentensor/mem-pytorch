@@ -106,7 +106,9 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     #  show an example of how to chunk the train_dataset into smaller chunks of size 1000
     jobs = []
     for i in range(0, len(train_dataset), 1000):
-        chunk = train_dataset[i:i+1000]
+        text_chunk = train_dataset['text'][i:i+1000]
+        meta_chunk = train_dataset['meta'][i:i+1000]
+        chunk = {'text': text_chunk, 'meta': meta_chunk}
         for data in tqdm(chunk):
             pdb.set_trace()
             jobs.append(pool.apply_async(db_loader_worker, args=(max_seq_len, data, path)))
