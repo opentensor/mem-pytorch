@@ -70,7 +70,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
         # tokens = tokenizer.encode_as_ids(examples["text"])
 
         compressed_tokens = compressor.compress(
-            tokens
+            tokens.encode("ASCII")
         )
 
         curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
