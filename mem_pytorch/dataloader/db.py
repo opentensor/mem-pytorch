@@ -62,7 +62,7 @@ def db_loader_worker(split, fpath, max_seq_len, tokenizer_path):
     def encode(examples):
         dataset_name = examples["meta"][0]
         tokens = tokenizer(
-            examples["text"], truncation=True, max_length=len(examples['text'])
+            examples["text"], truncation=True, max_length=len(examples['text']), encoding="ASCII"
         )
         compressed_tokens = compressor.compress(
             tokens
