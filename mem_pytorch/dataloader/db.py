@@ -113,13 +113,13 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
             # idx += 1
             # pdb.set_trace()
         else:
-            if idx != 0:
-                for job in jobs:
-                    # pdb.set_trace()
-                    index, dataset_name, compressed_tokens, compressed_attention_mask = job.get()
-                    curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens, compressed_attention_mask))
-                con.commit()
-                idx += 1
+            # if idx != 0:
+            for job in jobs:
+                # pdb.set_trace()
+                index, dataset_name, compressed_tokens, compressed_attention_mask = job.get()
+                curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens, compressed_attention_mask))
+            con.commit()
+            idx += 1
     
 
 
