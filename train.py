@@ -24,6 +24,8 @@ from mem_pytorch.autoregressive_wrapper import (
     AutoregressiveWrapper,
 )
 
+from mem_pytorch.dataloader import PileRandomIODataset
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -157,28 +159,10 @@ def create_chunked_dataset(set_names: Sequence[str], seq_len: int, subset: str):
     what if you just write a script to iterate over the dataset in chunks of size whatever, and save them to disk, then have another script that just iteratively loads them? 
 
     '''
-    train_sets = []
-    val_sets = []
+    train_dataset = PileRandomIODataset('/home/ubuntu/db', stage='train', max_seq_len=seq_len, pad_id=50257)
+    val_dataset = PileRandomIODataset('/home/ubuntu/db', stage='validation', max_seq_len=seq_len, pad_id=50257)
 
-    for set_name in set_names:
-        train_sets.append(load_dataset(set_name, split="train"))
-        val_sets.append(load_dataset(set_name, split="validation"))
-    train_dataset = interleave_datasets(train_sets)
-    val_dataset = interleave_datasets(val_sets)
-
-    tokenizer = create_tokenizer()
-
-    def encode(examples):
-        return tokenizer(
-            examples["text"], truncation=True, max_length=len(examples['text'])
-        )
-    
-    data_train = train_dataset.map(
-        encode, batched=True, remove_columns=["text", "meta"]
-    )
-    data_val = val_dataset.map(encode, batched=True, remove_columns=["text", "meta"])
-
-    return data_train, data_val, tokenizer
+    return train_dataset, val_dataset
 
 
 
@@ -205,7 +189,7 @@ def train(
 
     for step in tqdm(range(hp.num_batches), mininterval=10.0, desc="training"):
 
-        for i, batch in enumerate(tqdm(train_dataloader, total=300_000, mininterval=10., desc='training')):
+        for i, batch in enumerate(tqdm(train_dataloader, total=len(train_dataloader), mininterval=10., desc='training')):
             x = batch['input_ids'].to(device)
             # attention_mask = batch['attention_mask'].to(device)
 
@@ -291,11 +275,17 @@ def main(cfg: DictConfig):
         data_train, data_val, tokenizer = create_streaming_dataset(
             set_names=cfg.dataset.constituent_sets, seq_len=cfg.model.sequence_length, accelerator=accelerator
         )
-    else: 
+    elif cfg.dataset.data_type == "regular":
         subset = cfg.dataset.subset if cfg.dataset.subset is not False else None
         data_train, data_val, tokenizer = create_regular_dataset(
             cfg.dataset.constituent_sets, cfg.model.sequence_length, subset,
         )
+    elif cfg.dataset.data_type == "chunked":
+        data_train, data_val = create_chunked_dataset(
+            cfg.dataset.constituent_sets, cfg.model.sequence_length, cfg.dataset.subset,
+        )
+    else:
+        raise ValueError(f"Unknown dataset type {cfg.dataset.data_type}")
 
     per_device_batch_size = cfg.regime.batch_size 
     

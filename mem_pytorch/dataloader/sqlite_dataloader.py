@@ -82,7 +82,7 @@ class PileRandomIODataset(Dataset):
         # complexity that can arise from keeping many connections open for a long time.
         conn = sqlite3.connect(fpath)
         seq, dataset = conn.execute(
-            "SELECT tokens, dataset FROM rows WHERE idx == ?", (db_idx,)
+            "SELECT input_ids, dataset FROM rows WHERE idx == ?", (db_idx,)
         ).fetchall()[0]
         # Close connection
         conn.close()
