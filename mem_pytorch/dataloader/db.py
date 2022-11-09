@@ -49,7 +49,7 @@ def db_loader_worker(idx, max_seq_len, data, path):
         tokens = tokenizer(
             examples["text"], truncation=True, max_length=example_length
         )
-        tokens = " ".join(str(x) for x in tokens['input_ids'])
+        input_ids = " ".join(str(x) for x in tokens['input_ids'])
         attention_mask = " ".join(str(x) for x in tokens['attention_mask'])
 
         # tokens = tokenizer.encode_as_ids(examples["text"])
@@ -57,7 +57,7 @@ def db_loader_worker(idx, max_seq_len, data, path):
         # compressed_tokens = compressor.compress(
         #     tokens.encode("ASCII")
         # )
-        compressed_tokens = tokens
+        compressed_tokens = input_ids
         compressed_attention_mask = attention_mask
         return (idx, dataset_name, compressed_tokens, compressed_attention_mask)
         # curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens))
