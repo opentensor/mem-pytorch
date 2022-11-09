@@ -1,6 +1,6 @@
 name: toy
 
-data_type: "cunked" #['streaming', 'regular', 'chunked']
+data_type: "chunked" #['streaming', 'regular', 'chunked']
 constituent_sets:
   # - "wikitext"
   - "the_pile"
