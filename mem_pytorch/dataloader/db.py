@@ -46,7 +46,7 @@ def db_loader_worker(idx, max_seq_len, data, path):
         dataset_name = examples["meta"]['pile_set_name']
         example_length = len(examples["text"])
         tokens = tokenizer(
-            examples["text"], truncation=True, max_length=example_length
+            examples["text"], padding="max_length", truncation=True, max_length=max_seq_len
         )
         input_ids = " ".join(str(x) for x in tokens['input_ids'])
         attention_mask = " ".join(str(x) for x in tokens['attention_mask'])
