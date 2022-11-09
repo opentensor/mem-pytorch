@@ -91,7 +91,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
     # tokenizer = spm.SentencePieceProcessor()
     # tokenizer.load(tokenizer_path)
-    chunk_size = 1_000
+    chunk_size = 10_000
 
     # Create a DB file for the Pile file.
     con = sqlite3.connect(f"/home/ubuntu/mem-pytorch/db/{stage}.db")
