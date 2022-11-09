@@ -159,10 +159,11 @@ def create_chunked_dataset(set_names: Sequence[str], seq_len: int, subset: str):
     what if you just write a script to iterate over the dataset in chunks of size whatever, and save them to disk, then have another script that just iteratively loads them? 
 
     '''
+    tokenizer = create_tokenizer()
     train_dataset = PileRandomIODataset('/home/ubuntu/mem-pytorch/db', stage='train', max_seq_len=seq_len, pad_id=50257)
     # val_dataset = PileRandomIODataset('/home/ubuntu/mem-pytorch/db', stage='validation', max_seq_len=seq_len, pad_id=50257)
     val_dataset = train_dataset
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, tokenizer
 
 
 
@@ -281,7 +282,7 @@ def main(cfg: DictConfig):
             cfg.dataset.constituent_sets, cfg.model.sequence_length, subset,
         )
     elif cfg.dataset.data_type == "chunked":
-        data_train, data_val = create_chunked_dataset(
+        data_train, data_val, tokenizer = create_chunked_dataset(
             cfg.dataset.constituent_sets, cfg.model.sequence_length, cfg.dataset.subset,
         )
     else:
