@@ -16,7 +16,6 @@ from tqdm import tqdm
 
 from concurrent.futures import ThreadPoolExecutor
 
-import wandb
 import zstandard
 
 
@@ -92,7 +91,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
     # tokenizer = spm.SentencePieceProcessor()
     # tokenizer.load(tokenizer_path)
-    chunk_size = 5_000
+    chunk_size = 5_000_000
 
     # Create a DB file for the Pile file.
     con = sqlite3.connect(f"/home/ubuntu/mem-pytorch/db/{stage}.db")
