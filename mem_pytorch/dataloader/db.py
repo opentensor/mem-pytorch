@@ -118,6 +118,9 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
                 # pdb.set_trace()
                 index, dataset_name, compressed_tokens, compressed_attention_mask = job.get()
                 curr.execute(insert_cmd, (index, dataset_name, compressed_tokens, compressed_attention_mask))
+
+                # remove this job from the list
+                jobs.remove(job)
             con.commit()
         idx += 1
     
@@ -125,8 +128,6 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
 
 if __name__ == "__main__":
-    wandb.require("service")
-    wandb.setup()
 
 
     logging.warning(f"Started at {datetime.now()}")
