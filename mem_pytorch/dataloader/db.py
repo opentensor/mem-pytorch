@@ -96,9 +96,9 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
     curr = con.cursor()
     # Create the DB table. This table will store the data. This table has three columns: idx, tokens, and dataset name.
     # idx is the index of the sentence in the Pile file. tokens is the tokenized sentence. dataset_name is the name of
-    create_cmd = "CREATE TABLE rows (idx INT PRIMARY KEY, dataset TEXT, input_ids BLOB, attention_nask BLOB)"
+    create_cmd = "CREATE TABLE rows (idx INT PRIMARY KEY, subset TEXT, input_ids BLOB, attention_nask BLOB)"
     curr.execute(create_cmd)
-    insert_cmd = "INSERT INTO rows VALUES (?, ?, ?)"
+    insert_cmd = "INSERT INTO rows VALUES (?, ?, ?, ?)"
 
     dctx = zstandard.ZstdDecompressor()
 
