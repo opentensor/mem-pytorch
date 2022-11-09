@@ -3,6 +3,7 @@ import os
 import sqlite3
 import time
 
+import pdb
 
 import numpy as np
 import zstandard
@@ -37,6 +38,7 @@ class PileRandomIODataset(Dataset):
         self.index = []
         self.index_keys = SortedList()
         for i, fpath in enumerate(self.paths):
+            pdb.set_trace()
             # Connect to DB and get the rows count in each DB.
             conn = sqlite3.connect(fpath)
             num_rows = conn.execute("SELECT COUNT(*) FROM rows").fetchall()[0][0]
