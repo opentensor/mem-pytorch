@@ -38,8 +38,9 @@ class PileRandomIODataset(Dataset):
         self.index = []
         self.index_keys = SortedList()
         for i, fpath in enumerate(self.paths):
-            pdb.set_trace()
+            # pdb.set_trace()
             # Connect to DB and get the rows count in each DB.
+            print(fpath)
             conn = sqlite3.connect(fpath)
             num_rows = conn.execute("SELECT COUNT(*) FROM rows").fetchall()[0][0]
             conn.close()
