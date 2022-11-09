@@ -92,7 +92,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
 
     # tokenizer = spm.SentencePieceProcessor()
     # tokenizer.load(tokenizer_path)
-    chunk_size = 10000
+    chunk_size = 100000
 
     # Create a DB file for the Pile file.
     con = sqlite3.connect(f"/home/ubuntu/mem-pytorch/db/{stage}.db")
@@ -123,7 +123,8 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
                 curr.execute(insert_cmd, (index, dataset_name, compressed_tokens, compressed_attention_mask))
 
                 # remove this job from the list
-                jobs.remove(job)
+                # jobs.remove(job)
+            jobs = []
             con.commit()
         idx += 1
     
