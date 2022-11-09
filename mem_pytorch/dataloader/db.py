@@ -119,7 +119,7 @@ def load_db(stage, path, max_seq_len, tokenizer_path):
                     index, dataset_name, compressed_tokens, compressed_attention_mask = job.get()
                     curr.execute(insert_cmd, (idx, dataset_name, compressed_tokens, compressed_attention_mask))
                 con.commit()
-        idx += 1
+                idx += 1
     
 
 
