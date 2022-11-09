@@ -55,7 +55,7 @@ def db_loader_worker(idx, max_seq_len, data, path):
         # tokens = tokenizer.encode_as_ids(examples["text"])
 
         compressed_tokens = compressor.compress(
-            tokens.encode("ASCII")
+            input_ids.encode("ASCII")
         )
         compressed_attention_mask = compressor.compress(
             attention_mask.encode("ASCII")
