@@ -27,7 +27,7 @@ class PileRandomIODataset(Dataset):
         # the datastructures used for mapping __getitem__ index arguments to the right DB and key in the DB.
         # Required for deterministic results when using this dataset multiple times.
         self.paths = sorted(
-            [os.path.join(dpath, x) for x in os.listdir(dpath) if x.endswith("db")]
+            [os.path.join(path, x) for x in os.listdir(path) if x.endswith("db")]
         )
         self.max_seq_len = max_seq_len
         self.pad_id = pad_id
@@ -40,7 +40,6 @@ class PileRandomIODataset(Dataset):
         for i, fpath in enumerate(self.paths):
             # pdb.set_trace()
             # Connect to DB and get the rows count in each DB.
-            print(fpath)
             conn = sqlite3.connect(fpath)
             num_rows = conn.execute("SELECT COUNT(*) FROM rows").fetchall()[0][0]
             conn.close()
